@@ -1,0 +1,565 @@
+<!-- CrawlerMonitor/Views/Config/Index.cshtml -->
+@{
+    ViewData["Title"] = "Crawler Configuration";
+}
+
+<div class="container">
+    <h1>Crawler Configuration</h1>
+    
+    <div class="alert alert-info">
+        <strong>Configuration Management</strong> - Modify crawler settings without restarting the application
+    </div>
+
+    <!-- 配置标签页 -->
+    <ul class="nav nav-tabs" id="configTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="basic-tab" data-bs-toggle="tab" href="#basic">Basic</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="domains-tab" data-bs-toggle="tab" href="#domains">Domains</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="performance-tab" data-bs-toggle="tab" href="#performance">Performance</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="antibot-tab" data-bs-toggle="tab" href="#antibot">Anti-Bot</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="proxy-tab" data-bs-toggle="tab" href="#proxy">Proxy</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="storage-tab" data-bs-toggle="tab" href="#storage">Storage</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="seeds-tab" data-bs-toggle="tab" href="#seeds">Seeds</a>
+        </li>
+    </ul>
+
+    <div class="tab-content p-3 border border-top-0" id="configTabsContent">
+        <!-- 基础配置 -->
+        <div class="tab-pane fade show active" id="basic" role="tabpanel">
+            <form id="basicForm">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Max Concurrent Tasks</label>
+                            <input type="number" class="form-control" name="Basic.MaxConcurrentTasks" min="1" max="100">
+                            <div class="form-text">Number of parallel download tasks (1-100)</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Max Depth</label>
+                            <input type="number" class="form-control" name="Basic.MaxDepth" min="0" max="20">
+                            <div class="form-text">Maximum crawling depth (0 for unlimited)</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Max Pages</label>
+                            <input type="number" class="form-control" name="Basic.MaxPages" min="1" max="100000">
+                            <div class="form-text">Maximum number of pages to crawl</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Request Delay (ms)</label>
+                            <input type="number" class="form-control" name="Basic.RequestDelayMs" min="0" max="10000">
+                            <div class="form-text">Delay between requests in milliseconds</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Timeout (seconds)</label>
+                            <input type="number" class="form-control" name="Basic.TimeoutSeconds" min="1" max="300">
+                            <div class="form-text">Request timeout in seconds</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="Basic.RespectRobotsTxt">
+                            <label class="form-check-label">Respect robots.txt</label>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="Basic.FollowRedirects">
+                            <label class="form-check-label">Follow redirects</label>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 域名配置 -->
+        <div class="tab-pane fade" id="domains" role="tabpanel">
+            <form id="domainsForm">
+                <div class="mb-3">
+                    <label class="form-label">Allowed Domains</label>
+                    <textarea class="form-control" name="Domains.AllowedDomainsText" rows="4" 
+                              placeholder="example.com&#10;test.com&#10;subdomain.example.com"></textarea>
+                    <div class="form-text">One domain per line. Only these domains will be crawled.</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Blocked Patterns</label>
+                    <textarea class="form-control" name="Domains.BlockedPatternsText" rows="4"
+                              placeholder="/admin&#10;/login&#10;/logout&#10;/api/"></textarea>
+                    <div class="form-text">URL patterns to exclude from crawling. One per line.</div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 性能配置 -->
+        <div class="tab-pane fade" id="performance" role="tabpanel">
+            <form id="performanceForm">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Memory Limit (MB)</label>
+                            <input type="number" class="form-control" name="Performance.MemoryLimitMB" min="10" max="2048">
+                            <div class="form-text">Maximum memory usage in megabytes</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Max Queue Size</label>
+                            <input type="number" class="form-control" name="Performance.MaxQueueSize" min="100" max="100000">
+                            <div class="form-text">Maximum URLs in queue</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="Performance.EnableCompression">
+                            <label class="form-check-label">Enable response compression</label>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 反爬虫配置 -->
+        <div class="tab-pane fade" id="antibot" role="tabpanel">
+            <form id="antibotForm">
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" name="AntiBot.EnableDetection">
+                    <label class="form-check-label">Enable anti-bot detection</label>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">Retry Policy</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Max Retries</label>
+                                    <input type="number" class="form-control" name="AntiBot.RetryPolicy.MaxRetries" min="0" max="10">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Initial Delay (ms)</label>
+                                    <input type="number" class="form-control" name="AntiBot.RetryPolicy.InitialDelayMs" min="0" max="10000">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Backoff Multiplier</label>
+                                    <input type="number" class="form-control" name="AntiBot.RetryPolicy.BackoffMultiplier" min="1" max="10" step="0.1">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Max Delay (ms)</label>
+                                    <input type="number" class="form-control" name="AntiBot.RetryPolicy.MaxDelayMs" min="0" max="300000">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 代理配置 -->
+        <div class="tab-pane fade" id="proxy" role="tabpanel">
+            <form id="proxyForm">
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" name="Proxy.Enabled">
+                    <label class="form-check-label">Enable proxy</label>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Proxy URLs</label>
+                    <textarea class="form-control" name="Proxy.ProxyUrlsText" rows="4"
+                              placeholder="192.168.1.100:8080&#10;192.168.1.101:8080:username:password&#10;http://proxy.example.com:8080"></textarea>
+                    <div class="form-text">One proxy per line. Format: host:port or host:port:username:password</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Rotation Strategy</label>
+                    <select class="form-select" name="Proxy.RotationStrategy">
+                        <option value="RoundRobin">Round Robin</option>
+                        <option value="Random">Random</option>
+                        <option value="BySuccessRate">By Success Rate</option>
+                        <option value="ByUsage">By Usage</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Test Interval (minutes)</label>
+                    <input type="number" class="form-control" name="Proxy.TestIntervalMinutes" min="1" max="1440">
+                </div>
+            </form>
+        </div>
+
+        <!-- 存储配置 -->
+        <div class="tab-pane fade" id="storage" role="tabpanel">
+            <form id="storageForm">
+                <div class="mb-3">
+                    <label class="form-label">Storage Type</label>
+                    <select class="form-select" name="Storage.Type">
+                        <option value="FileSystem">File System</option>
+                        <option value="SQLite">SQLite Database</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">File System Path</label>
+                    <input type="text" class="form-control" name="Storage.FileSystemPath" placeholder="crawler_data">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Database Connection</label>
+                    <input type="text" class="form-control" name="Storage.DatabaseConnection" placeholder="Data Source=crawler.db">
+                </div>
+            </form>
+        </div>
+
+        <!-- 种子URL配置 -->
+        <div class="tab-pane fade" id="seeds" role="tabpanel">
+            <form id="seedsForm">
+                <div class="mb-3">
+                    <label class="form-label">Seed URLs</label>
+                    <textarea class="form-control" name="Seeds.SeedUrlsText" rows="6"
+                              placeholder="https://example.com&#10;https://example.com/news&#10;https://example.com/blog"></textarea>
+                    <div class="form-text">Starting URLs for crawling. One URL per line.</div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="mt-3">
+        <button type="button" class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+        <button type="button" class="btn btn-secondary" onclick="resetConfig()">Reset to Defaults</button>
+        <button type="button" class="btn btn-outline-secondary" onclick="validateConfig()">Validate</button>
+        <button type="button" class="btn btn-outline-info" onclick="reloadConfig()">Reload from File</button>
+        
+        <div class="float-end">
+            <span id="saveStatus" class="badge bg-success" style="display: none;">Saved</span>
+            <span id="errorStatus" class="badge bg-danger" style="display: none;">Error</span>
+        </div>
+    </div>
+
+    <!-- 验证结果 -->
+    <div id="validationResult" class="mt-3" style="display: none;">
+        <div class="card">
+            <div class="card-header">Validation Results</div>
+            <div class="card-body">
+                <div id="validationErrors"></div>
+                <div id="validationWarnings"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // 加载配置
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                populateForms(config);
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                showError('Failed to load configuration');
+            }
+        }
+
+        // 填充表单
+        function populateForms(config) {
+            // 基础配置
+            setValue('Basic.MaxConcurrentTasks', config.CrawlerConfig.Basic.maxConcurrentTasks);
+            setValue('Basic.MaxDepth', config.CrawlerConfig.Basic.maxDepth);
+            setValue('Basic.MaxPages', config.CrawlerConfig.Basic.maxPages);
+            setValue('Basic.RequestDelayMs', config.CrawlerConfig.Basic.requestDelay ? 
+                timeSpanToMs(config.CrawlerConfig.Basic.requestDelay) : 500);
+            setValue('Basic.TimeoutSeconds', config.CrawlerConfig.Basic.timeoutSeconds);
+            setCheckbox('Basic.RespectRobotsTxt', config.CrawlerConfig.Basic.respectRobotsTxt);
+            setCheckbox('Basic.FollowRedirects', config.CrawlerConfig.Basic.followRedirects);
+
+            // 域名配置
+            setTextarea('Domains.AllowedDomainsText', config.CrawlerConfig.Domains.allowedDomains);
+            setTextarea('Domains.BlockedPatternsText', config.CrawlerConfig.Domains.blockedPatterns);
+
+            // 性能配置
+            setValue('Performance.MemoryLimitMB', config.CrawlerConfig.Performance.memoryLimitMB);
+            setValue('Performance.MaxQueueSize', config.CrawlerConfig.Performance.maxQueueSize);
+            setCheckbox('Performance.EnableCompression', config.CrawlerConfig.Performance.enableCompression);
+
+            // 反爬虫配置
+            setCheckbox('AntiBot.EnableDetection', config.CrawlerConfig.AntiBot.enableDetection);
+            setValue('AntiBot.RetryPolicy.MaxRetries', config.CrawlerConfig.AntiBot.retryPolicy.maxRetries);
+            setValue('AntiBot.RetryPolicy.InitialDelayMs', 
+                timeSpanToMs(config.CrawlerConfig.AntiBot.retryPolicy.initialDelay));
+            setValue('AntiBot.RetryPolicy.BackoffMultiplier', config.CrawlerConfig.AntiBot.retryPolicy.backoffMultiplier);
+            setValue('AntiBot.RetryPolicy.MaxDelayMs', timeSpanToMs(config.CrawlerConfig.AntiBot.retryPolicy.maxDelay));
+
+            // 代理配置
+            setCheckbox('Proxy.Enabled', config.CrawlerConfig.Proxy.enabled);
+            setTextarea('Proxy.ProxyUrlsText', config.CrawlerConfig.Proxy.proxyUrls);
+            setValue('Proxy.RotationStrategy', config.CrawlerConfig.Proxy.rotationStrategy);
+            setValue('Proxy.TestIntervalMinutes', config.CrawlerConfig.Proxy.testIntervalMinutes);
+
+            // 存储配置
+            setValue('Storage.Type', config.CrawlerConfig.Storage.Type);
+            setValue('Storage.FileSystemPath', config.CrawlerConfig.Storage.fileSystemPath);
+            setValue('Storage.DatabaseConnection', config.CrawlerConfig.Storage.databaseConnection);
+
+            // 种子URL
+            setTextarea('Seeds.SeedUrlsText', config.CrawlerConfig.Seeds.seedUrls);
+        }
+
+        // 保存配置
+        async function saveConfig() {
+            const config = collectFormData();
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Configuration saved successfully');
+                } else {
+                    showError('Failed to save configuration: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Save failed:', error);
+                showError('Failed to save configuration');
+            }
+        }
+
+        // 收集表单数据
+        function collectFormData() {
+            return {
+                CrawlerConfig: {
+                    Basic: {
+                        maxConcurrentTasks: getNumberValue('Basic.MaxConcurrentTasks'),
+                        maxDepth: getNumberValue('Basic.MaxDepth'),
+                        maxPages: getNumberValue('Basic.MaxPages'),
+                        requestDelay: msToTimeSpan(getNumberValue('Basic.RequestDelayMs')),
+                        timeoutSeconds: getNumberValue('Basic.TimeoutSeconds'),
+                        respectRobotsTxt: getCheckbox('Basic.RespectRobotsTxt'),
+                        followRedirects: getCheckbox('Basic.FollowRedirects')
+                    },
+                    Domains: {
+                        allowedDomains: getTextareaArray('Domains.AllowedDomainsText'),
+                        blockedPatterns: getTextareaArray('Domains.BlockedPatternsText')
+                    },
+                    Performance: {
+                        memoryLimitMB: getNumberValue('Performance.MemoryLimitMB'),
+                        maxQueueSize: getNumberValue('Performance.MaxQueueSize'),
+                        enableCompression: getCheckbox('Performance.EnableCompression')
+                    },
+                    AntiBot: {
+                        enableDetection: getCheckbox('AntiBot.EnableDetection'),
+                        retryPolicy: {
+                            maxRetries: getNumberValue('AntiBot.RetryPolicy.MaxRetries'),
+                            initialDelay: msToTimeSpan(getNumberValue('AntiBot.RetryPolicy.InitialDelayMs')),
+                            backoffMultiplier: getNumberValue('AntiBot.RetryPolicy.BackoffMultiplier'),
+                            maxDelay: msToTimeSpan(getNumberValue('AntiBot.RetryPolicy.MaxDelayMs'))
+                        }
+                    },
+                    Proxy: {
+                        enabled: getCheckbox('Proxy.Enabled'),
+                        proxyUrls: getTextareaArray('Proxy.ProxyUrlsText'),
+                        rotationStrategy: getValue('Proxy.RotationStrategy'),
+                        testIntervalMinutes: getNumberValue('Proxy.TestIntervalMinutes')
+                    },
+                    Storage: {
+                        type: getValue('Storage.Type'),
+                        fileSystemPath: getValue('Storage.FileSystemPath'),
+                        databaseConnection: getValue('Storage.DatabaseConnection')
+                    },
+                    Seeds: {
+                        seedUrls: getTextareaArray('Seeds.SeedUrlsText')
+                    }
+                }
+            };
+        }
+
+        // 工具函数
+        function setValue(name, value) {
+            const element = document.querySelector(`[name="${name}"]`);
+            if (element && value !== undefined && value !== null) {
+                element.value = value;
+            }
+        }
+
+        function setCheckbox(name, checked) {
+            const element = document.querySelector(`[name="${name}"]`);
+            if (element) {
+                element.checked = !!checked;
+            }
+        }
+
+        function setTextarea(name, array) {
+            const element = document.querySelector(`[name="${name}"]`);
+            if (element && Array.isArray(array)) {
+                element.value = array.join('\n');
+            }
+        }
+
+        function getValue(name) {
+            const element = document.querySelector(`[name="${name}"]`);
+            return element ? element.value : '';
+        }
+
+        function getNumberValue(name) {
+            const value = getValue(name);
+            return value ? parseInt(value) : 0;
+        }
+
+        function getCheckbox(name) {
+            const element = document.querySelector(`[name="${name}"]`);
+            return element ? element.checked : false;
+        }
+
+        function getTextareaArray(name) {
+            const element = document.querySelector(`[name="${name}"]`);
+            if (!element || !element.value.trim()) return [];
+            return element.value.split('\n').map(line => line.trim()).filter(line => line);
+        }
+
+        function timeSpanToMs(timeSpan) {
+            if (!timeSpan) return 0;
+            // 假设 timeSpan 是 "00:00:01.500" 格式
+            const parts = timeSpan.split(':');
+            if (parts.length === 3) {
+                const hours = parseInt(parts[0]) || 0;
+                const minutes = parseInt(parts[1]) || 0;
+                const seconds = parseFloat(parts[2]) || 0;
+                return (hours * 3600 + minutes * 60 + seconds) * 1000;
+            }
+            return 0;
+        }
+
+        function msToTimeSpan(ms) {
+            if (!ms) return "00:00:00";
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function showSuccess(message) {
+            const status = document.getElementById('saveStatus');
+            status.textContent = message;
+            status.style.display = 'inline';
+            document.getElementById('errorStatus').style.display = 'none';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        function showError(message) {
+            const status = document.getElementById('errorStatus');
+            status.textContent = message;
+            status.style.display = 'inline';
+            document.getElementById('saveStatus').style.display = 'none';
+        }
+
+        // 其他操作函数
+        async function resetConfig() {
+            if (confirm('Are you sure you want to reset all settings to defaults?')) {
+                try {
+                    const response = await fetch('/api/config/reset', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showSuccess('Configuration reset to defaults');
+                        await loadConfig();
+                    } else {
+                        showError('Failed to reset configuration');
+                    }
+                } catch (error) {
+                    showError('Failed to reset configuration');
+                }
+            }
+        }
+
+        async function validateConfig() {
+            const config = collectFormData();
+            
+            try {
+                const response = await fetch('/api/config/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                displayValidationResult(result);
+            } catch (error) {
+                showError('Failed to validate configuration');
+            }
+        }
+
+        async function reloadConfig() {
+            try {
+                const response = await fetch('/api/config/reload', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Configuration reloaded from file');
+                    await loadConfig();
+                } else {
+                    showError('Failed to reload configuration');
+                }
+            } catch (error) {
+                showError('Failed to reload configuration');
+            }
+        }
+
+        function displayValidationResult(result) {
+            const container = document.getElementById('validationResult');
+            const errorsDiv = document.getElementById('validationErrors');
+            const warningsDiv = document.getElementById('validationWarnings');
+
+            errorsDiv.innerHTML = '';
+            warningsDiv.innerHTML = '';
+
+            if (result.errors && result.errors.length > 0) {
+                errorsDiv.innerHTML = '<div class="alert alert-danger"><strong>Errors:</strong><ul>' +
+                    result.errors.map(error => `<li>${error}</li>`).join('') + '</ul></div>';
+            }
+
+            if (result.warnings && result.warnings.length > 0) {
+                warningsDiv.innerHTML = '<div class="alert alert-warning"><strong>Warnings:</strong><ul>' +
+                    result.warnings.map(warning => `<li>${warning}</li>`).join('') + '</ul></div>';
+            }
+
+            if (result.errors.length === 0 && result.warnings.length === 0) {
+                errorsDiv.innerHTML = '<div class="alert alert-success">Configuration is valid!</div>';
+            }
+
+            container.style.display = 'block';
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', loadConfig);
+    </script>
+}

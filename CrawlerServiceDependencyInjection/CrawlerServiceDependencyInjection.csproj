@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CrawlerCore\CrawlerCore.csproj" />
+    <ProjectReference Include="..\CrawlerDownloader\CrawlerDownloader.csproj" />
+    <ProjectReference Include="..\CrawlerParser\CrawlerParser.csproj" />
+    <ProjectReference Include="..\CrawlerScheduler\CrawlerScheduler.csproj" />
+    <ProjectReference Include="..\CrawlerStorage\CrawlerStorage.csproj" />
+  </ItemGroup>
+
+</Project>

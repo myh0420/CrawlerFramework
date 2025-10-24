@@ -1,0 +1,607 @@
+@{
+    ViewData["Title"] = "Crawler Monitor";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <style>
+        /* 上面修复后的 CSS 代码 */
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+        .card { 
+            background: white; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+        }
+        .stat-item { 
+            text-align: center; 
+            padding: 15px; 
+        }
+        .stat-value { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #007bff; 
+        }
+        .stat-label { 
+            font-size: 14px; 
+            color: #666; 
+        }
+        .controls { 
+            display: flex; 
+            gap: 10px; 
+            margin: 20px 0; 
+        }
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        .btn-start { 
+            background: #28a745; 
+            color: white; 
+        }
+        .btn-stop { 
+            background: #dc3545; 
+            color: white; 
+        }
+        .btn-pause { 
+            background: #ffc107; 
+            color: #212529; 
+        }
+        .btn-resume { 
+            background: #17a2b8; 
+            color: white; 
+        }
+        .log-container { 
+            max-height: 400px; 
+            overflow-y: auto; 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+        }
+        .log-entry { 
+            padding: 5px; 
+            border-bottom: 1px solid #eee; 
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-error { 
+            color: #dc3545; 
+            background-color: #f8d7da;
+        }
+        .log-success { 
+            color: #28a745; 
+            background-color: #d4edda;
+        }
+        .log-warning { 
+            color: #856404; 
+            background-color: #fff3cd;
+        }
+        .log-info { 
+            color: #0c5460; 
+            background-color: #d1ecf1;
+        }
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-running {
+            background: #28a745;
+        }
+        .status-paused {
+            background: #ffc107;
+        }
+        .status-stopped {
+            background: #dc3545;
+        }
+        .status-error {
+            background: #dc3545;
+            animation: blink-animation 1s infinite;
+        }
+        @@keyframes blink-animation {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+            }
+            51% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 0.3;
+            }
+        }
+        .url-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .url-table th,
+        .url-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .url-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .url-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .url-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+        @@media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .control-panel {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Crawler Monitor</h1>
+        
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <button class="btn btn-start" onclick="startCrawler()">Start Crawler</button>
+            <button class="btn btn-pause" onclick="pauseCrawler()">Pause</button>
+            <button class="btn btn-resume" onclick="resumeCrawler()">Resume</button>
+            <button class="btn btn-stop" onclick="stopCrawler()">Stop Crawler</button>
+        </div>
+
+        <!-- 状态显示 -->
+        <div class="card">
+            <h2>Current Status</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">
+                        <span class="status-indicator" id="statusIndicator"></span>
+                        <span id="statusText">Stopped</span>
+                    </div>
+                    <div class="stat-label">Status</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalUrls">0</div>
+                    <div class="stat-label">Total URLs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="memoryUsage">0</div>
+                    <div class="stat-label">Memory (MB)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="uptime">0</div>
+                    <div class="stat-label">Uptime (min)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="card">
+            <h2>Progress</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                <span>Processed: <span id="processedCount">0</span></span>
+                <span>Queued: <span id="queuedCount">0</span></span>
+                <span>Errors: <span id="errorCount">0</span></span>
+            </div>
+        </div>
+
+        <!-- 图表 -->
+        <div class="card">
+            <h2>Performance</h2>
+            <canvas id="performanceChart" width="400" height="200"></canvas>
+        </div>
+
+        <!-- 最近活动 -->
+        <div class="card">
+            <h2>Recent Activity</h2>
+            <div class="log-container" id="activityLog">
+                <!-- Activity log will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- URL 列表 -->
+        <div class="card">
+            <h2>Crawled URLs</h2>
+            <div id="urlListContainer">
+                <table class="url-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Status</th>
+                            <th>Content Type</th>
+                            <th>Size</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="urlList">
+                        <!-- URL list will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // SignalR连接
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/crawlerHub")
+            .build();
+
+        // 图表和数据
+        let performanceChart;
+        let statsData = {
+            timestamps: [],
+            memory: [],
+            urls: [],
+            processingTimes: []
+        };
+
+        // 状态映射
+        const statusClasses = {
+            'Running': 'status-running',
+            'Paused': 'status-paused', 
+            'Stopped': 'status-stopped',
+            'Error': 'status-error',
+            'Idle': 'status-stopped'
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+            connectSignalR();
+            loadInitialData();
+            setInterval(updateStatistics, 5000);
+        });
+
+        function initializeChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: statsData.timestamps,
+                    datasets: [
+                        {
+                            label: 'Memory Usage (MB)',
+                            data: statsData.memory,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'URLs Processed',
+                            data: statsData.urls,
+                            borderColor: 'rgb(54, 162, 235)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'Processing Time (ms)',
+                            data: statsData.processingTimes,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            tension: 0.1,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    animation: {
+                        duration: 0
+                    }
+                }
+            });
+        }
+
+        async function connectSignalR() {
+            try {
+                await connection.start();
+                console.log('SignalR Connected');
+
+                // 注册事件处理器
+                connection.on('CrawlCompleted', (data) => {
+                    addLogEntry(`Completed: ${data.Url} (${data.StatusCode}) - ${data.LinksFound} links found`, 'success');
+                    updateUrlList(data);
+                    updateProgress();
+                });
+
+                connection.on('CrawlError', (data) => {
+                    addLogEntry(`Error: ${data.Url} - ${data.Message}`, 'error');
+                    updateProgress();
+                });
+
+                connection.on('UrlDiscovered', (data) => {
+                    addLogEntry(`Discovered: ${data.DiscoveredUrl} from ${data.SourceUrl || 'seed'} (Depth: ${data.Depth})`, 'info');
+                    updateProgress();
+                });
+
+                connection.on('StatusChanged', (data) => {
+                    updateStatusDisplay(data);
+                    addLogEntry(`Status: ${data.PreviousStatus} → ${data.CurrentStatus}: ${data.Message}`, 'warning');
+                });
+
+                connection.on('CurrentStatus', (data) => {
+                    updateCurrentStatus(data);
+                });
+
+                connection.on('ControlResult', (data) => {
+                    if (data.Success) {
+                        addLogEntry(`Control: ${data.Message}`, 'success');
+                    } else {
+                        addLogEntry(`Control Error: ${data.Message}`, 'error');
+                    }
+                });
+
+            } catch (err) {
+                console.error('SignalR Connection Error: ', err);
+                setTimeout(connectSignalR, 5000);
+            }
+        }
+
+        async function loadInitialData() {
+            try {
+                // 请求当前状态
+                await connection.invoke('RequestCurrentStatus').catch(err => console.error(err));
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
+            }
+        }
+
+        function updateCurrentStatus(data) {
+            updateStatusDisplay({
+                CurrentStatus: data.Status,
+                IsRunning: data.IsRunning
+            });
+            
+            if (data.Statistics) {
+                updateStatisticsDisplay(data.Statistics);
+            }
+            
+            if (data.CrawlState) {
+                updateProgressData(data.CrawlState);
+            }
+        }
+
+        function updateProgressData(crawlState) {
+            document.getElementById('processedCount').textContent = crawlState.TotalUrlsProcessed || 0;
+            document.getElementById('errorCount').textContent = crawlState.TotalErrors || 0;
+            
+            // 更新进度条
+            const total = (crawlState.TotalUrlsProcessed || 0) + (crawlState.TotalUrlsDiscovered || 0);
+            const processed = crawlState.TotalUrlsProcessed || 0;
+            const progress = total > 0 ? (processed / total) * 100 : 0;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+        }
+
+        function updateProgress() {
+            // 这里可以添加逻辑来更新进度信息
+            // 在实际应用中，可能需要从服务器获取最新的统计信息
+        }
+
+        async function updateStatistics() {
+            try {
+                await connection.invoke('RequestCurrentStatus').catch(err => console.error(err));
+            } catch (error) {
+                console.error('Failed to update statistics:', error);
+            }
+        }
+
+        function updateStatusDisplay(status) {
+            const statusText = document.getElementById('statusText');
+            const statusIndicator = document.getElementById('statusIndicator');
+            
+            statusText.textContent = status.CurrentStatus || status.Status || 'Unknown';
+            
+            // 清除所有状态类
+            statusIndicator.className = 'status-indicator';
+            
+            // 添加当前状态类
+            const statusClass = statusClasses[status.CurrentStatus || status.Status] || 'status-stopped';
+            statusIndicator.classList.add(statusClass.split('-')[1]); // 移除 'status-' 前缀
+            
+            // 更新运行时间
+            if (status.IsRunning) {
+                const uptimeElement = document.getElementById('uptime');
+                let uptime = parseInt(uptimeElement.textContent) || 0;
+                uptimeElement.textContent = uptime + 0.5; // 每5秒更新一次，增加0.5分钟
+            }
+        }
+
+        function updateStatisticsDisplay(stats) {
+            if (!stats) return;
+            
+            // 更新统计数据显示
+            document.getElementById('totalUrls').textContent = stats.TotalUrlsProcessed || 0;
+            document.getElementById('memoryUsage').textContent = Math.round(stats.Memory?.Used || 0);
+            
+            // 更新图表数据
+            const now = new Date().toLocaleTimeString();
+            statsData.timestamps.push(now);
+            statsData.memory.push(stats.Memory?.Used || 0);
+            statsData.urls.push(stats.TotalUrlsProcessed || 0);
+            statsData.processingTimes.push(stats.AverageDownloadTimeMs || 0);
+
+            // 保持最近20个数据点
+            if (statsData.timestamps.length > 20) {
+                statsData.timestamps.shift();
+                statsData.memory.shift();
+                statsData.urls.shift();
+                statsData.processingTimes.shift();
+            }
+
+            performanceChart.update();
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const logContainer = document.getElementById('activityLog');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // 限制日志条目数量
+            const entries = logContainer.getElementsByClassName('log-entry');
+            if (entries.length > 100) {
+                entries[0].remove();
+            }
+        }
+
+        function updateUrlList(data) {
+            const urlList = document.getElementById('urlList');
+            
+            // 创建新行
+            const row = document.createElement('tr');
+            
+            // URL列
+            const urlCell = document.createElement('td');
+            urlCell.textContent = data.Url || 'Unknown';
+            urlCell.style.maxWidth = '300px';
+            urlCell.style.overflow = 'hidden';
+            urlCell.style.textOverflow = 'ellipsis';
+            urlCell.style.whiteSpace = 'nowrap';
+            
+            // 状态列
+            const statusCell = document.createElement('td');
+            statusCell.textContent = data.StatusCode || 'N/A';
+            statusCell.style.color = data.StatusCode >= 200 && data.StatusCode < 400 ? '#28a745' : '#dc3545';
+            
+            // 内容类型列
+            const typeCell = document.createElement('td');
+            typeCell.textContent = data.ContentType || 'Unknown';
+            
+            // 大小列
+            const sizeCell = document.createElement('td');
+            sizeCell.textContent = data.ContentLength ? `${(data.ContentLength / 1024).toFixed(2)} KB` : 'N/A';
+            
+            // 时间列
+            const timeCell = document.createElement('td');
+            timeCell.textContent = new Date().toLocaleTimeString();
+            
+            // 添加到行
+            row.appendChild(urlCell);
+            row.appendChild(statusCell);
+            row.appendChild(typeCell);
+            row.appendChild(sizeCell);
+            row.appendChild(timeCell);
+            
+            // 添加到表格开头
+            urlList.insertBefore(row, urlList.firstChild);
+            
+            // 限制表格行数
+            const rows = urlList.getElementsByTagName('tr');
+            if (rows.length > 50) {
+                urlList.removeChild(rows[rows.length - 1]);
+            }
+        }
+
+        // 控制函数
+        async function startCrawler() {
+            try {
+                // 这里需要提供配置信息，简化处理
+                await connection.invoke('ControlCrawler', 'start').catch(err => {
+                    addLogEntry('Start action requires configuration. Please check server implementation.', 'error');
+                });
+            } catch (error) {
+                console.error('Failed to start crawler:', error);
+                addLogEntry('Error starting crawler: ' + error.message, 'error');
+            }
+        }
+
+        async function stopCrawler() {
+            try {
+                await connection.invoke('ControlCrawler', 'stop');
+            } catch (error) {
+                console.error('Failed to stop crawler:', error);
+                addLogEntry('Error stopping crawler: ' + error.message, 'error');
+            }
+        }
+
+        async function pauseCrawler() {
+            try {
+                await connection.invoke('ControlCrawler', 'pause');
+            } catch (error) {
+                console.error('Failed to pause crawler:', error);
+                addLogEntry('Error pausing crawler: ' + error.message, 'error');
+            }
+        }
+
+        async function resumeCrawler() {
+            try {
+                await connection.invoke('ControlCrawler', 'resume');
+            } catch (error) {
+                console.error('Failed to resume crawler:', error);
+                addLogEntry('Error resuming crawler: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
