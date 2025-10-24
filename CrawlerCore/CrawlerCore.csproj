@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Extractors\" />
+    <Folder Include="Utils\" />
+    <Folder Include="AntiBot\" />
+    <Folder Include="Retry\" />
+    <Folder Include="Export\" />
+    <Folder Include="Metrics\" />
+    <Folder Include="Health\" />
+    <Folder Include="Robots\" />
+    <Folder Include="Configuration\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CrawlerInterFaces\CrawlerInterFaces.csproj" />
+    <ProjectReference Include="..\CrawlerModels\CrawlerEntity.csproj" />
+    <ProjectReference Include="..\CrawlerStorage\CrawlerStorage.csproj" />
+  </ItemGroup>
+
+</Project>

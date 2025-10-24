@@ -1,0 +1,531 @@
+<!-- CrawlerMonitor/Views/Home/Index.cshtml -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crawler Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-start {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-pause {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-resume {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .log-entry {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-error {
+            color: #dc3545;
+            background-color: #f8d7da;
+        }
+
+        .log-success {
+            color: #28a745;
+            background-color: #d4edda;
+        }
+
+        .log-warning {
+            color: #856404;
+            background-color: #fff3cd;
+        }
+
+        .log-info {
+            color: #0c5460;
+            background-color: #d1ecf1;
+        }
+
+        /* 控制面板样式 */
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+
+        /* 状态指示器 */
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-running {
+            background: #28a745;
+        }
+
+        .status-paused {
+            background: #ffc107;
+        }
+
+        .status-stopped {
+            background: #dc3545;
+        }
+
+        .status-error {
+            background: #dc3545;
+            animation: blink-animation 1s infinite;
+        }
+
+        /* 修复的关键帧动画 */
+        @@keyframes blink-animation {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            51% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 0.3;
+            }
+        }
+
+        /* 表格样式 */
+        .url-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+            .url-table th,
+            .url-table td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+
+            .url-table th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+            }
+
+            .url-table tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+
+            .url-table tr:hover {
+                background-color: #f5f5f5;
+            }
+
+        /* 进度条样式 */
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+
+        /* 响应式设计 */
+        @@media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .control-panel {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Crawler Monitor</h1>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn btn-start" onclick="startCrawler()">Start Crawler</button>
+            <button class="btn btn-stop" onclick="stopCrawler()">Stop Crawler</button>
+        </div>
+
+        <!-- Statistics -->
+        <div class="card">
+            <h2>Statistics</h2>
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalUrls">0</div>
+                    <div class="stat-label">Total URLs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="memoryUsage">0</div>
+                    <div class="stat-label">Memory (MB)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="status">Stopped</div>
+                    <div class="stat-label">Status</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="uptime">0</div>
+                    <div class="stat-label">Uptime (min)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="card">
+            <h2>Performance</h2>
+            <canvas id="performanceChart" width="400" height="200"></canvas>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card">
+            <h2>Recent Activity</h2>
+            <div class="log-container" id="activityLog">
+                <!-- Activity log will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- URL List -->
+        <div class="card">
+            <h2>Crawled URLs</h2>
+            <div id="urlList">
+                <!-- URL list will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // SignalR连接
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/crawlerHub")
+            .build();
+
+        // 图表
+        let performanceChart;
+        let statsData = {
+            timestamps: [],
+            memory: [],
+            urls: []
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+            connectSignalR();
+            loadInitialData();
+            setInterval(updateStatistics, 5000);
+        });
+
+        function initializeChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: statsData.timestamps,
+                    datasets: [
+                        {
+                            label: 'Memory Usage (MB)',
+                            data: statsData.memory,
+                            borderColor: 'rgb(255, 99, 132)',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'URLs Processed',
+                            data: statsData.urls,
+                            borderColor: 'rgb(54, 162, 235)',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        async function connectSignalR() {
+            try {
+                await connection.start();
+                console.log('SignalR Connected');
+
+                // 注册事件处理器
+                connection.on('CrawlCompleted', (data) => {
+                    addLogEntry(`Completed: ${data.Url} (${data.StatusCode})`, 'success');
+                    updateUrlList();
+                });
+
+                connection.on('CrawlError', (data) => {
+                    addLogEntry(`Error: ${data.Url} - ${data.Message}`, 'error');
+                });
+
+                connection.on('StatusUpdate', (data) => {
+                    updateStatusDisplay(data);
+                });
+
+                        // 在 CrawlerMonitor 的前端 JavaScript 中添加新的事件处理
+                connection.on('UrlDiscovered', function (data) {
+                    addLogEntry(`Discovered: ${data.DiscoveredUrl} from ${data.SourceUrl || 'seed'} (Depth: ${data.Depth})`, 'info');
+                    updateStatistics();
+                });
+
+                connection.on('StatusChanged', function (data) {
+                    addLogEntry(`Status: ${data.PreviousStatus} → ${data.CurrentStatus}: ${data.Message}`, 'warning');
+                    updateStatusDisplay({
+                        IsRunning: data.CurrentStatus === 'Running',
+                        Status: data.CurrentStatus
+                    });                            
+                });
+
+                // 添加控制按钮的事件处理
+                document.getElementById('btnPause').addEventListener('click', function() {
+                    connection.invoke('ControlCrawler', 'pause').catch(err => console.error(err));
+                });
+
+                document.getElementById('btnResume').addEventListener('click', function() {
+                    connection.invoke('ControlCrawler', 'resume').catch(err => console.error(err));
+                });
+
+                // 请求当前状态
+                connection.invoke('RequestCurrentStatus').catch(err => console.error(err));
+            } catch (err) {
+                console.error('SignalR Connection Error: ', err);
+                setTimeout(connectSignalR, 5000);
+            }
+        }
+
+        async function loadInitialData() {
+            try {
+                const response = await fetch('/api/monitor/status');
+                const status = await response.json();
+                updateStatusDisplay(status);
+
+                const statsResponse = await fetch('/api/monitor/statistics');
+                const stats = await statsResponse.json();
+                updateStatisticsDisplay(stats);
+
+                updateUrlList();
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
+            }
+        }
+
+        async function updateStatistics() {
+            try {
+                const response = await fetch('/api/monitor/statistics');
+                const stats = await response.json();
+                updateStatisticsDisplay(stats);
+            } catch (error) {
+                console.error('Failed to update statistics:', error);
+            }
+        }
+
+        function updateStatusDisplay(status) {
+            document.getElementById('status').textContent = status.IsRunning ? 'Running' : 'Stopped';
+            document.getElementById('memoryUsage').textContent = status.MemoryUsage || '0';
+            document.getElementById('totalUrls').textContent = status.TotalProcessed || '0';
+
+            if (status.StartTime) {
+                const uptime = Math.floor((new Date() - new Date(status.StartTime)) / 60000);
+                document.getElementById('uptime').textContent = uptime;
+            }
+        }
+
+        function updateStatisticsDisplay(stats) {
+            // 更新图表数据
+            const now = new Date().toLocaleTimeString();
+            statsData.timestamps.push(now);
+            statsData.memory.push(stats.Memory.Used);
+            statsData.urls.push(stats.TotalUrls);
+
+            // 保持最近20个数据点
+            if (statsData.timestamps.length > 20) {
+                statsData.timestamps.shift();
+                statsData.memory.shift();
+                statsData.urls.shift();
+            }
+
+            performanceChart.update();
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const logContainer = document.getElementById('activityLog');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function updateUrlList() {
+            try {
+                const response = await fetch('/api/monitor/urls?pageSize=10');
+                const data = await response.json();
+
+                const urlList = document.getElementById('urlList');
+                urlList.innerHTML = '';
+
+                data.Urls.forEach(url => {
+                    const urlElement = document.createElement('div');
+                    urlElement.className = 'log-entry';
+                    urlElement.innerHTML = `
+                        <strong>${url.Url}</strong><br>
+                        <small>Status: ${url.StatusCode} | Type: ${url.ContentType} | Size: ${url.ContentLength} bytes</small>
+                    `;
+                    urlList.appendChild(urlElement);
+                });
+            } catch (error) {
+                console.error('Failed to update URL list:', error);
+            }
+        }
+
+        async function startCrawler() {
+            try {
+                const config = {
+                    MaxConcurrentTasks: 5,
+                    MaxDepth: 2,
+                    RequestDelay: 1000
+                };
+
+                const response = await fetch('/api/monitor/control/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    addLogEntry('Crawler started successfully', 'success');
+                    updateStatistics();
+                } else {
+                    addLogEntry('Failed to start crawler', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to start crawler:', error);
+                addLogEntry('Error starting crawler: ' + error.message, 'error');
+            }
+        }
+
+        async function stopCrawler() {
+            try {
+                const response = await fetch('/api/monitor/control/stop', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    addLogEntry('Crawler stopped successfully', 'success');
+                    updateStatistics();
+                } else {
+                    addLogEntry('Failed to stop crawler', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to stop crawler:', error);
+                addLogEntry('Error stopping crawler: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
