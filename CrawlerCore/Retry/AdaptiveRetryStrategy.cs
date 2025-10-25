@@ -26,12 +26,12 @@ namespace CrawlerCore.Retry
             {
                 if (!_domainRetryInfo.TryGetValue(domain, out retryInfo))
                 {
-                    retryInfo = new DomainRetryInfo();
-                    _domainRetryInfo[domain] = retryInfo;
-                }
+                retryInfo = new DomainRetryInfo();
+                _domainRetryInfo[domain] = retryInfo;
+            }
 
-                retryInfo.LastError = DateTime.UtcNow;
-                retryInfo.ConsecutiveErrors++;
+            retryInfo.LastError = DateTime.UtcNow;
+            retryInfo.ConsecutiveErrors++;
                 retryInfo.TotalErrors++;
                 retryInfo.RecordError(exception.GetType().Name); // 记录错误类型
             }
@@ -44,7 +44,7 @@ namespace CrawlerCore.Retry
                 var delay = CalculateRetryDelay(currentRetryCount, retryInfo);
                 _logger.LogDebug("Retrying {Domain} after {Delay}ms (attempt {Attempt}, consecutive errors: {Errors}, error type: {ErrorType})",
                     domain, delay, currentRetryCount + 1, retryInfo.ConsecutiveErrors, exception.GetType().Name);
-
+                
                 await Task.Delay(delay);
             }
             else
@@ -107,10 +107,10 @@ namespace CrawlerCore.Retry
             // 基础指数退避
             var baseDelay = Math.Pow(2, currentRetryCount) * 1000; // 1s, 2s, 4s...
             var jitter = new Random().Next(0, 500); // 最多500ms抖动
-
+            
             // 基于连续错误次数和总错误次数调整延迟
             var errorMultiplier = 1.0;
-
+            
             if (retryInfo.ConsecutiveErrors > 5)
                 errorMultiplier = 2.0; // 频繁错误，加倍延迟
             else if (retryInfo.ConsecutiveErrors > 2)
@@ -120,7 +120,7 @@ namespace CrawlerCore.Retry
             if (retryInfo.LastErrorType?.Contains("429") == true)
             {
                 errorMultiplier = 3.0;
-            }
+        }
 
             return (int)(baseDelay * errorMultiplier) + jitter;
         }
@@ -129,13 +129,13 @@ namespace CrawlerCore.Retry
         {
             lock (_lock)
             {
-                if (_domainRetryInfo.TryGetValue(domain, out DomainRetryInfo? value))
-                {
-                    value.ConsecutiveErrors = 0;
-                    value.LastSuccess = DateTime.UtcNow;
+            if (_domainRetryInfo.TryGetValue(domain, out DomainRetryInfo? value))
+            {
+                value.ConsecutiveErrors = 0;
+                value.LastSuccess = DateTime.UtcNow;
                     value.TotalSuccess++;
-                }
             }
+        }
 
             _logger.LogDebug("Success recorded for {Domain}, consecutive errors reset", domain);
         }
