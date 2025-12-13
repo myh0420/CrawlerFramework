@@ -1,12 +1,14 @@
 // CrawlerDownloader/AdvancedDownloader.cs
 using CrawlerCore.AntiBot;
+using CrawlerCore.ErrorHandling;
+using CrawlerCore.Exceptions;
 using CrawlerCore.Export;
 using CrawlerCore.Metrics;
 using CrawlerCore.Retry;
 using CrawlerCore.Robots;
 using CrawlerCore.Services;
 using CrawlerCore.Utils;
-//using CrawlerCore.Services;
+
 using CrawlerDownloader.Services;
 using CrawlerDownloader.Utils;
 using CrawlerEntity.Configuration;
@@ -15,6 +17,7 @@ using CrawlerEntity.Models;
 using CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -36,6 +39,9 @@ namespace CrawlerDownloader
         private readonly AdaptiveRetryStrategy? _retryStrategy;
         private readonly RobotsTxtParser? _robotsTxtParser;
         private readonly CrawlerMetrics? _metrics;
+        private readonly IErrorHandlingService? _errorHandlingService;
+        private readonly ConcurrentDictionary<string, HttpClientHandler> _proxyHandlerCache = new();
+        private readonly SemaphoreSlim _proxyHandlerSemaphore = new(1);
 
         private readonly DataExportService? _dataExporter; // 添加这个字段
 
@@ -52,26 +58,29 @@ namespace CrawlerDownloader
         public AdvancedDownloader(
             ILogger<AdvancedDownloader> logger,
             AdvancedCrawlConfiguration config,
+            SimpleHttpClientManager httpClientManager,
+            RotatingUserAgentService userAgentService,
+            ProxyManager proxyManager,
+            IErrorHandlingService? errorHandlingService = null,
             AntiBotDetectionService? antiBotService = null,
             AdaptiveRetryStrategy? retryStrategy = null,
             RobotsTxtParser? robotsTxtParser = null,
             CrawlerMetrics? metrics = null,
-            DataExportService? dataExporter = null, // 添加这个参数
-            ProxyManager? proxyManager = null,
-            int maxHttpClients = 10)
+            DataExportService? dataExporter = null)
         {
             _logger = logger;
             _config = config;
+            _httpClientManager = httpClientManager;
+            _userAgentService = userAgentService;
+            _proxyManager = proxyManager;
+            _errorHandlingService = errorHandlingService;
+            _antiBotService = antiBotService;
+            _retryStrategy = retryStrategy;
+            _robotsTxtParser = robotsTxtParser;
+            _metrics = metrics;
+            _dataExporter = dataExporter;
             _useProxies = config.ProxySettings?.Enabled ?? false;
-            _httpClientManager = new SimpleHttpClientManager(maxHttpClients);
-            _userAgentService = new RotatingUserAgentService();
-            _proxyManager = proxyManager ?? new ProxyManager();
-            _antiBotService = antiBotService ?? new(null);
-            _retryStrategy = retryStrategy ?? new(null, config.RetryPolicy.MaxRetries);
-            _robotsTxtParser = robotsTxtParser ?? new(null,null);
-            _metrics = metrics ?? new();
-            _dataExporter = dataExporter; // 初始化这个字段
-            _semaphore = new SemaphoreSlim(ConcurrentRequests);
+            _semaphore = new SemaphoreSlim(config.MaxConcurrentTasks);
 
             // 配置代理
             if (_useProxies && config.ProxySettings?.ProxyUrls != null)
@@ -140,7 +149,7 @@ namespace CrawlerDownloader
 
                                 if (_retryStrategy != null && await _retryStrategy.ShouldRetryAsync(
                                     new Uri(request.Url).Host,
-                                    new Exception(antiBotResult.BlockReason),
+                                    new AntiBotException(request.Url, true, antiBotResult.BlockReason),
                                     retryCount))
                                 {
                                     retryCount++;
@@ -167,7 +176,7 @@ namespace CrawlerDownloader
                     else
                     {
                         // 下载失败，使用重试策略
-                        lastException = new Exception(result.ErrorMessage);
+                        lastException = new DownloadException(request.Url, result.ErrorMessage, result.StatusCode);
                     }
                 }
                 catch (Exception ex)
@@ -178,8 +187,8 @@ namespace CrawlerDownloader
                 }
 
                 // 决定是否重试
-                string? host = new Uri(request.Url)?.Host;
-                if (!string.IsNullOrEmpty( host ) && _retryStrategy != null &&  await _retryStrategy!.ShouldRetryAsync( host!, lastException, retryCount ))
+                string? host = new Uri(request.Url).Host;
+                if (!string.IsNullOrEmpty(host) && _retryStrategy != null && await _retryStrategy.ShouldRetryAsync(host, lastException, retryCount))
                 {
                     retryCount++;
                     _logger.LogInformation("Retrying {Url} (attempt {Attempt})",
@@ -193,6 +202,12 @@ namespace CrawlerDownloader
 
             // 记录失败指标
             _metrics?.RecordUrlFailed(new Uri(request.Url).Host, lastException?.GetType().Name ?? "Unknown");
+
+            // 使用错误处理服务来处理最终异常
+            if (_errorHandlingService != null)
+            {
+                return _errorHandlingService.HandleDownloadException(request.Url, lastException ?? new Exception("Download failed after all retries"));
+            }
 
             return new DownloadResult
             {
@@ -219,7 +234,7 @@ namespace CrawlerDownloader
             ProxyServer? currentProxy = null;
             HttpRequestMessage? requestMessage = null;
 
-            using var managedClient = _httpClientManager.GetClient();
+            using var managedClient = await _httpClientManager.GetClientAsync();
             try
             {
                 // 选择代理（如果启用）
@@ -238,16 +253,61 @@ namespace CrawlerDownloader
                 // 使用代理或直接连接
                 if (currentProxy != null && _proxyManager != null)
                 {
-                    using var handler = _proxyManager?.CreateHttpClientHandler(currentProxy);
-                    using var proxyClient = new HttpClient(handler!)
+                    // 尝试从缓存获取代理处理器，避免每次创建新的处理器
+                    if (!_proxyHandlerCache.TryGetValue(currentProxy.Address, out var handler))
+                    {
+                        // 线程安全地创建和缓存处理器
+                        await _proxyHandlerSemaphore.WaitAsync();
+                        try
+                        {
+                            // 双重检查锁定模式
+                            if (!_proxyHandlerCache.TryGetValue(currentProxy.Address, out handler))
+                            {
+                                handler = _proxyManager.CreateHttpClientHandler(currentProxy);
+                                _proxyHandlerCache.TryAdd(currentProxy.Address, handler);
+                            }
+                        }
+                        finally
+                        {
+                            _proxyHandlerSemaphore.Release();
+                        }
+                    }
+                    
+                    using var proxyClient = new HttpClient(handler)
                     {
                         Timeout = Timeout
                     };
-                    response = await proxyClient.SendAsync(requestMessage);
+                    try
+                    {
+                        response = await proxyClient.SendAsync(requestMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录代理失败并抛出下载异常
+                        _proxyManager.RecordFailure(currentProxy, ex.Message);
+                        throw new DownloadException(request.Url, ex.Message, null, ex);
+                    }
                 }
                 else
                 {
-                    response = await managedClient.Client.SendAsync(requestMessage);
+                    try
+                    {
+                        response = await managedClient.Client.SendAsync(requestMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new DownloadException(request.Url, ex.Message, null, ex);
+                    }
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    // 记录代理失败并抛出下载异常
+                    if (currentProxy != null)
+                    {
+                        _proxyManager?.RecordFailure(currentProxy, $"HTTP error: {response.StatusCode}");
+                    }
+                    throw new DownloadException(request.Url, $"HTTP error: {response.StatusCode}", (int)response.StatusCode);
                 }
 
                 var content = await ProcessResponseAsync(response);
@@ -261,7 +321,7 @@ namespace CrawlerDownloader
                     StatusCode = (int)response.StatusCode,
                     DownloadTimeMs = stopwatch.ElapsedMilliseconds,
                     Headers = response.Headers.ToDictionary(h => h.Key, h => string.Join(",", h.Value)),
-                    IsSuccess = response.IsSuccessStatusCode
+                    IsSuccess = true
                 };
 
                 // 记录代理成功
@@ -274,27 +334,6 @@ namespace CrawlerDownloader
                     request.Url, response.StatusCode, stopwatch.ElapsedMilliseconds);
 
                 return result;
-            }
-            catch (Exception ex)
-            {
-                // 记录代理失败
-                if (currentProxy != null)
-                {
-                    _proxyManager?.RecordFailure(currentProxy, ex.Message);
-                }
-
-                _logger.LogError(ex, "Download failed for {Url}", request.Url);
-
-                return new DownloadResult
-                {
-                    Url = request.Url,
-                    Content = string.Empty,
-                    RawData = [],
-                    StatusCode = 0,
-                    DownloadTimeMs = stopwatch.ElapsedMilliseconds,
-                    ErrorMessage = ex.Message,
-                    IsSuccess = false
-                };
             }
             finally
             {
@@ -426,6 +465,14 @@ namespace CrawlerDownloader
         public Task ShutdownAsync()
         {
             _httpClientManager?.Dispose();
+            
+            // 释放缓存的代理处理器
+            foreach (var handler in _proxyHandlerCache.Values)
+            {
+                handler.Dispose();
+            }
+            _proxyHandlerCache.Clear();
+            
             _logger.LogInformation("AdvancedDownloader shutdown");
             return Task.CompletedTask;
         }

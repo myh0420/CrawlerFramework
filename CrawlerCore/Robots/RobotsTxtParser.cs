@@ -15,7 +15,7 @@ namespace CrawlerCore.Robots
     public class RobotsTxtParser(ILogger<RobotsTxtParser>? logger, HttpClient? httpClient)
     {
         private readonly ILogger _logger = logger ?? new Logger<RobotsTxtParser>(new LoggerFactory());
-        private readonly HttpClient _httpClient = httpClient ?? HttpClientFactory.CreateClient();
+        private readonly HttpClient _httpClient = httpClient ?? new HttpClient();
         private readonly Dictionary<string, RobotsTxt> _cache = [];
 
         public async Task<bool> IsAllowedAsync(string url, string userAgent = "*")

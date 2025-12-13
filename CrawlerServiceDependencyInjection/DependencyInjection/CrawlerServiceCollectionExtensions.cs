@@ -2,6 +2,7 @@
 using CrawlerCore;
 using CrawlerCore.AntiBot;
 using CrawlerCore.Configuration;
+using CrawlerCore.ErrorHandling;
 using CrawlerCore.Export;
 using CrawlerCore.Extractors;
 using CrawlerCore.Health;
@@ -9,6 +10,7 @@ using CrawlerCore.Metrics;
 using CrawlerCore.Retry;
 using CrawlerCore.Robots;
 using CrawlerCore.Services;
+using CrawlerCore.Utils;
 using CrawlerDownloader;
 using CrawlerDownloader.Services;
 using CrawlerEntity.Configuration;
@@ -30,10 +32,13 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         // 添加配置服务
         public static IServiceCollection AddCrawlerConfiguration(this IServiceCollection services, string configPath = "appsettings.json")
         {
-            services.AddSingleton<IConfigService>(provider =>
-                new JsonConfigService(provider.GetRequiredService<ILogger<JsonConfigService>>(), configPath));
-
             services.AddSingleton<IConfigValidator, ConfigValidator>();
+            
+            services.AddSingleton<IConfigService>(provider =>
+                new JsonConfigService(
+                    logger: provider.GetRequiredService<ILogger<JsonConfigService>>(),
+                    validator: provider.GetRequiredService<IConfigValidator>(),
+                    defaultConfigPath: configPath));
 
             return services;
         }
@@ -52,6 +57,10 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
             services.TryAddSingleton<IContentExtractor, LinkExtractor>();
             services.TryAddSingleton<IContentExtractor, MetadataExtractor>();
             services.TryAddSingleton<IContentExtractor, ContentExtractor>();
+            
+            // 注册错误处理服务
+            services.TryAddSingleton<IErrorHandlingService, ErrorHandlingService>();
+            
             // 注册核心服务
             services.TryAddSingleton<CrawlerEngine>();
 
@@ -72,8 +81,9 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
 
             // 注册高级服务
             services.TryAddSingleton<AntiBotDetectionService>();
-            var retryStrategy = new AdaptiveRetryStrategy(null,config.RetryPolicy?.MaxRetries ?? 3 );
-            services.TryAddSingleton<AdaptiveRetryStrategy>(retryStrategy);
+            services.TryAddSingleton<AdaptiveRetryStrategy>(sp => 
+                new AdaptiveRetryStrategy(sp.GetService<ILogger<AdaptiveRetryStrategy>>(), 
+                config.RetryPolicy?.MaxRetries ?? 3));
             services.TryAddSingleton<DataExportService>();
             services.TryAddSingleton<CrawlerMetrics>();
             services.TryAddSingleton<RobotsTxtParser>();
@@ -177,21 +187,27 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         /// </summary>
         public static IServiceCollection AddCrawlerDownloader(this IServiceCollection services, bool useProxies = false)
         {
+            // 注册下载器相关服务
+            services.TryAddSingleton<ProxyManager>();
+            services.TryAddSingleton<RotatingUserAgentService>();
+            services.TryAddSingleton<SimpleHttpClientManager>(sp => 
+            {
+                var config = sp.GetRequiredService<AdvancedCrawlConfiguration>();
+                return new SimpleHttpClientManager(config.MaxConcurrentTasks);
+            });
+            
             services.TryAddSingleton<IDownloader>(provider =>
             {
                 var logger = provider.GetRequiredService<ILogger<AdvancedDownloader>>();
-                var configService = provider.GetRequiredService<IConfigService>();
-                var config = configService.LoadConfigAsync().GetAwaiter().GetResult().CrawlerConfig.ToAdvancedCrawlConfiguration();
-
-                //var config = provider.GetService<AdvancedCrawlConfiguration>() ?? new AdvancedCrawlConfiguration();
+                var config = provider.GetRequiredService<AdvancedCrawlConfiguration>();
+                var httpClientManager = provider.GetRequiredService<SimpleHttpClientManager>();
+                var userAgentService = provider.GetRequiredService<RotatingUserAgentService>();
+                var proxyManager = provider.GetRequiredService<ProxyManager>();
                 var antiBotService = provider.GetService<AntiBotDetectionService>();
-                var retryStrategy = new AdaptiveRetryStrategy(null, config.RetryPolicy?.MaxRetries ?? 3);
-                services.TryAddSingleton<AdaptiveRetryStrategy>(retryStrategy);
-                //var retryStrategy = provider.GetService<AdaptiveRetryStrategy>();
+                var retryStrategy = provider.GetRequiredService<AdaptiveRetryStrategy>();
                 var robotsTxtParser = provider.GetService<RobotsTxtParser>();
                 var metrics = provider.GetService<CrawlerMetrics>();
                 var dataExporter = provider.GetService<DataExportService>();
-                var proxyManager = provider.GetService<ProxyManager>() ?? new ProxyManager();
 
                 // 如果启用了代理，配置代理设置
                 if (useProxies)
@@ -206,13 +222,14 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
                 return new AdvancedDownloader(
                     logger: logger,
                     config: config,
+                    httpClientManager: httpClientManager,
+                    userAgentService: userAgentService,
+                    proxyManager: proxyManager,
                     antiBotService: antiBotService,
                     retryStrategy: retryStrategy,
                     robotsTxtParser: robotsTxtParser,
                     metrics: metrics,
-                    dataExporter: dataExporter,
-                    proxyManager: proxyManager,
-                    maxHttpClients: config.MaxConcurrentTasks
+                    dataExporter: dataExporter
                 );
             });
 

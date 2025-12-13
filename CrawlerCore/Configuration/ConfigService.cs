@@ -27,9 +27,10 @@ namespace CrawlerCore.Configuration
     /// <summary>
     /// JSON配置服务实现
     /// </summary>
-    public class JsonConfigService(ILogger<JsonConfigService>? logger, string defaultConfigPath = "appsettings.json") : IConfigService
+    public class JsonConfigService(ILogger<JsonConfigService>? logger, IConfigValidator? validator, string defaultConfigPath = "appsettings.json") : IConfigService
     {
         private readonly ILogger<JsonConfigService> _logger = logger ?? new Logger<JsonConfigService>(new LoggerFactory());
+        private readonly IConfigValidator _validator = validator ?? new ConfigValidator();
         private AppCrawlerConfig _currentConfig = new();
         private readonly string _defaultConfigPath = defaultConfigPath;
         private readonly JsonSerializerOptions _deserializeOptions = new()
@@ -62,8 +63,30 @@ namespace CrawlerCore.Configuration
                 var json = await File.ReadAllTextAsync(path);
                 var config = JsonSerializer.Deserialize<AppCrawlerConfig>(json, _deserializeOptions);
 
-                _currentConfig = config ?? CreateDefaultConfig();
-                _logger.LogInformation("Config loaded successfully from {Path}", path);
+                if (config == null)
+                {
+                    _logger.LogError("Failed to deserialize config, creating default config");
+                    _currentConfig = CreateDefaultConfig();
+                    return _currentConfig;
+                }
+
+                // 验证配置
+                var validationResult = _validator.Validate(config);
+                if (!validationResult.IsValid)
+                {
+                    _logger.LogError("Config validation failed: {Errors}", string.Join(", ", validationResult.Errors));
+                    _currentConfig = CreateDefaultConfig();
+                    return _currentConfig;
+                }
+
+                // 记录警告
+                foreach (var warning in validationResult.Warnings)
+                {
+                    _logger.LogWarning("Config warning: {Warning}", warning);
+                }
+
+                _currentConfig = config;
+                _logger.LogInformation("Config loaded and validated successfully from {Path}", path);
                 
                 return _currentConfig;
             }
@@ -81,10 +104,24 @@ namespace CrawlerCore.Configuration
             
             try
             {
+                // 验证配置
+                var validationResult = _validator.Validate(config);
+                if (!validationResult.IsValid)
+                {
+                    _logger.LogError("Config validation failed, cannot save invalid config: {Errors}", string.Join(", ", validationResult.Errors));
+                    throw new InvalidOperationException($"Invalid configuration: {string.Join(", ", validationResult.Errors)}");
+                }
+
+                // 记录警告
+                foreach (var warning in validationResult.Warnings)
+                {
+                    _logger.LogWarning("Config warning: {Warning}", warning);
+                }
+
                 var oldConfig = _currentConfig;
                 _currentConfig = config;
 
-                var json = JsonSerializer.Serialize(new { config.CrawlerConfig }, _serializeOptions);
+                var json = JsonSerializer.Serialize(new { config.CrawlerConfig, config.Logging, config.AllowedHosts }, _serializeOptions);
                 await File.WriteAllTextAsync(path, json);
 
                 _logger.LogInformation("Config saved successfully to {Path}", path);

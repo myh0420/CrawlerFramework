@@ -15,7 +15,13 @@ using Microsoft.Extensions.Logging;
 
 namespace CrawlerCore;
 public class CrawlerEngine(IScheduler scheduler, IDownloader downloader,
-    IParser parser, IStorageProvider storage, ILogger<CrawlerEngine> logger)
+    IParser parser, IStorageProvider storage, ILogger<CrawlerEngine> logger,
+    AntiBotDetectionService? antiBotService = null,
+    AdaptiveRetryStrategy? retryStrategy = null,
+    DataExportService? dataExporter = null,
+    CrawlerHealthCheck? healthCheckService = null,
+    CrawlerMetrics? metrics = null,
+    RobotsTxtParser? robotsTxtParser = null)
 {
     private readonly IScheduler _scheduler = scheduler;
     private readonly IDownloader _downloader = downloader;
@@ -29,13 +35,13 @@ public class CrawlerEngine(IScheduler scheduler, IDownloader downloader,
     private CrawlerStatus _currentStatus = CrawlerStatus.Idle;
     private DateTime _startTime;
     private string? _currentJobId;
-    // 添加新的私有字段
-    private AntiBotDetectionService? _antiBotService;
-    private AdaptiveRetryStrategy? _retryStrategy;
-    private DataExportService? _dataExporter;
-    private CrawlerHealthCheck? _healthCheckService;
-    private CrawlerMetrics? _metrics;
-    private RobotsTxtParser? _robotsTxtParser;
+    // 通过构造函数注入的服务
+    private readonly AntiBotDetectionService? _antiBotService = antiBotService;
+    private readonly AdaptiveRetryStrategy? _retryStrategy = retryStrategy;
+    private readonly DataExportService? _dataExporter = dataExporter;
+    private readonly CrawlerHealthCheck? _healthCheckService = healthCheckService;
+    private readonly CrawlerMetrics? _metrics = metrics;
+    private readonly RobotsTxtParser? _robotsTxtParser = robotsTxtParser;
 
     // 事件定义
     public event EventHandler<CrawlCompletedEventArgs>? OnCrawlCompleted;
@@ -97,9 +103,6 @@ public class CrawlerEngine(IScheduler scheduler, IDownloader downloader,
             _startTime = DateTime.UtcNow;
 
             await ChangeStatusAsync(CrawlerStatus.Running, "Starting crawler engine");
-            // 初始化新增的服务
-            await InitializeAdvancedServicesAsync(config);
-
             await InitializeComponentsAsync();
 
             // 启动工作线程
@@ -122,41 +125,7 @@ public class CrawlerEngine(IScheduler scheduler, IDownloader downloader,
         }
     }
 
-    // 新增：初始化高级服务
-    private async Task InitializeAdvancedServicesAsync(AdvancedCrawlConfiguration config)
-    {
-        // 初始化反爬虫检测服务
-        if (config.EnableAntiBotDetection)
-        {
-            _antiBotService = new AntiBotDetectionService(null);
-            _logger.LogInformation("Anti-bot detection service initialized");
-        }
-
-        // 初始化重试策略
-        _retryStrategy = new AdaptiveRetryStrategy(null, config.RetryPolicy.MaxRetries);
-        _logger.LogInformation("Adaptive retry strategy initialized");
-
-        // 初始化数据导出服务
-        _dataExporter = new DataExportService();
-        _logger.LogInformation("Data export service initialized");
-
-        // 初始化健康检查服务
-        _healthCheckService = new CrawlerHealthCheck(this, _storage as IStorageProvider);
-        _logger.LogInformation("Health check service initialized");
-
-        // 初始化指标收集
-        _metrics = new CrawlerMetrics();
-        _logger.LogInformation("Metrics collection initialized");
-
-        // 初始化 Robots.txt 解析器
-        if (config.RespectRobotsTxt)
-        {
-            _robotsTxtParser = new RobotsTxtParser(null, HttpClientFactory.CreateClient());
-            _logger.LogInformation("Robots.txt parser initialized");
-        }
-
-        await Task.CompletedTask;
-    }
+    // 初始化高级服务 - 现在通过构造函数注入，此方法已废弃
 
     
     public async Task StopAsync()
@@ -544,16 +513,5 @@ public class CrawlerEngine(IScheduler scheduler, IDownloader downloader,
             };
             await metadataStore.SaveUrlStateAsync(urlState);
         }
-    }
-}
-// 简单的 HttpClient 工厂
-public class HttpClientFactory
-{
-    public static HttpClient CreateClient()
-    {
-        return new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
     }
 }

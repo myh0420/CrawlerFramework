@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +11,7 @@ namespace CrawlerEntity.Models;
 /// </summary>
 public class ParseResult
 {
+    public string Url { get; set; } = string.Empty;
     public List<string> Links { get; set; } = [];
     public Dictionary<string, object> ExtractedData { get; set; } = [];
     public string Title { get; set; } = string.Empty;
