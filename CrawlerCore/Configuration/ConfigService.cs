@@ -29,23 +29,47 @@ namespace CrawlerCore.Configuration
     /// </summary>
     public class JsonConfigService(ILogger<JsonConfigService>? logger, IConfigValidator? validator, string defaultConfigPath = "appsettings.json") : IConfigService
     {
+        /// <summary>
+        /// 内部 ILogger 实例
+        /// </summary>
         private readonly ILogger<JsonConfigService> _logger = logger ?? new Logger<JsonConfigService>(new LoggerFactory());
+        /// <summary>
+        /// 内部 IConfigValidator 实例
+        /// </summary>
         private readonly IConfigValidator _validator = validator ?? new ConfigValidator();
+        /// <summary>
+        /// 内部 AppCrawlerConfig 实例
+        /// </summary>
         private AppCrawlerConfig _currentConfig = new();
+        /// <summary>
+        /// 内部默认配置文件路径
+        /// </summary>
         private readonly string _defaultConfigPath = defaultConfigPath;
+        /// <summary>
+        /// 内部 JSON 反序列化选项
+        /// </summary>
         private readonly JsonSerializerOptions _deserializeOptions = new()
         {
             PropertyNameCaseInsensitive = true,
             ReadCommentHandling = JsonCommentHandling.Skip
         };
+        /// <summary>
+        /// 内部 JSON 序列化选项
+        /// </summary>
         private readonly JsonSerializerOptions _serializeOptions = new() 
         {
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
-
+        /// <summary>
+        /// 配置改变事件
+        /// </summary>
         public event EventHandler<ConfigChangedEventArgs>? ConfigChanged = null;
-
+        /// <summary>
+        /// 异步加载配置文件
+        /// </summary>
+        /// <param name="configPath">配置文件路径（可选）</param>
+        /// <returns>应用爬虫配置</returns>
         public async Task<AppCrawlerConfig> LoadConfigAsync(string? configPath = null)
         {
             var path = configPath ?? _defaultConfigPath;
@@ -97,7 +121,12 @@ namespace CrawlerCore.Configuration
                 return _currentConfig;
             }
         }
-
+        /// <summary>
+        /// 异步保存配置文件
+        /// </summary>
+        /// <param name="config">应用爬虫配置</param>
+        /// <param name="configPath">配置文件路径（可选）</param>
+        /// <returns>任务</returns>
         public async Task SaveConfigAsync(AppCrawlerConfig config, string? configPath = null)
         {
             var path = configPath ?? _defaultConfigPath;
@@ -139,12 +168,18 @@ namespace CrawlerCore.Configuration
                 throw;
             }
         }
-
+        /// <summary>
+        /// 获取当前配置
+        /// </summary>
+        /// <returns>应用爬虫配置</returns>
         public AppCrawlerConfig GetCurrentConfig()
         {
             return _currentConfig ?? CreateDefaultConfig();
         }
-
+        /// <summary>
+        /// 创建默认配置
+        /// </summary>
+        /// <returns>应用爬虫配置</returns>
         private static AppCrawlerConfig CreateDefaultConfig()
         {
             return new AppCrawlerConfig

@@ -66,17 +66,17 @@ namespace CrawlerConsole
             // 注册所有事件
             crawler.OnCrawlCompleted += (s, e) =>
             {
-                Console.WriteLine($"[COMPLETED] {e.Result.Request.Url} ({e.Result.DownloadResult.StatusCode})");
+                Console.WriteLine($"[COMPLETED] {e.Url} (Depth: {e.Depth}, Content-Type: {e.ContentType})");
             };
 
             crawler.OnCrawlError += (s, e) =>
             {
-                Console.WriteLine($"[ERROR] {e.Request.Url}: {e.Exception.Message}");
+                Console.WriteLine($"[ERROR] {e.Url} (Depth: {e.Depth}): {e.ErrorMessage} - {e.Exception.Message}");
             };
 
             crawler.OnUrlDiscovered += (s, e) =>
             {
-                Console.WriteLine($"[DISCOVERED] {e.DiscoveredUrl} (Depth: {e.Depth}) from {e.SourceUrl ?? "seed"}");
+                Console.WriteLine($"[DISCOVERED] Found {e.AddedUrls} new URLs from {e.SourceUrl}, Total discovered: {e.DiscoveredUrls.Count}");
             };
 
             crawler.OnStatusChanged += (s, e) =>
@@ -111,6 +111,8 @@ namespace CrawlerConsole
                 builder.AddFilter("Microsoft", LogLevel.Warning);
                 builder.AddFilter("System", LogLevel.Warning);
             });
+            // 添加配置服务
+            services.AddCrawlerConfiguration();
             // 添加高级爬虫服务
             services.AddAdvancedCrawler(config =>
             {

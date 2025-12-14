@@ -10,19 +10,48 @@ namespace CrawlerCore.Configuration
     /// </summary>
     public interface IConfigValidator
     {
+        /// <summary>
+        /// 验证应用爬虫配置
+        /// </summary>
+        /// <param name="config">应用爬虫配置</param>
+        /// <returns>验证结果</returns>
         ValidationResult Validate(AppCrawlerConfig config);
+        /// <summary>
+        /// 获取应用爬虫配置的验证错误信息
+        /// </summary>
+        /// <param name="config">应用爬虫配置</param>
+        /// <returns>验证错误信息列表</returns>
         IEnumerable<string> GetValidationErrors(AppCrawlerConfig config);
     }
-
+    /// <summary>
+    /// 验证结果
+    /// </summary>
     public class ValidationResult
     {
+        /// <summary>
+        /// 是否有效
+        /// </summary>
         public bool IsValid { get; set; }
+        /// <summary>
+        /// 错误列表
+        /// </summary>
         public List<string> Errors { get; set; } = [];
+        /// <summary>
+        /// 警告列表
+        /// </summary>
         public List<string> Warnings { get; set; } = [];
     }
 
+    /// <summary>
+    /// 配置验证服务实现
+    /// </summary>
     public class ConfigValidator : IConfigValidator
     {
+        /// <summary>
+        /// 验证应用爬虫配置
+        /// </summary>
+        /// <param name="config">应用爬虫配置</param>
+        /// <returns>验证结果</returns>
         public ValidationResult Validate(AppCrawlerConfig config)
         {
             var result = new ValidationResult();
@@ -179,6 +208,13 @@ namespace CrawlerCore.Configuration
             return result;
         }
 
+        /// <summary>
+        /// 验证日志级别是否有效
+        /// </summary>
+        /// <param name="logLevel">日志级别</param>
+        /// <param name="configPath">配置路径</param>
+        /// <param name="validLogLevels">有效日志级别数组</param>
+        /// <param name="result">验证结果</param>
         private static void ValidateLogLevel(string logLevel, string configPath, string[] validLogLevels, ValidationResult result)
         {
             if (string.IsNullOrWhiteSpace(logLevel))
@@ -193,6 +229,11 @@ namespace CrawlerCore.Configuration
             }
         }
 
+        /// <summary>
+        /// 获取应用爬虫配置的验证错误信息
+        /// </summary>
+        /// <param name="config">应用爬虫配置</param>
+        /// <returns>验证错误信息列表</returns>
         public IEnumerable<string> GetValidationErrors(AppCrawlerConfig config)
         {
             var result = Validate(config);

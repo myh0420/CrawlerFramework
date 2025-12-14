@@ -7,11 +7,24 @@ using Microsoft.Extensions.Logging;
 
 namespace CrawlerMonitor.Hubs
 {
+    /// <summary>
+    /// 爬虫监控中心
+    /// </summary>
     public class CrawlerHub : Hub
     {
+        /// <summary>
+        /// 爬虫引擎
+        /// </summary>
         private readonly CrawlerEngine _crawlerEngine;
+        /// <summary>
+        /// 日志记录器
+        /// </summary>
         private readonly ILogger<CrawlerHub> _logger;
-
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="crawlerEngine">爬虫引擎</param>
+        /// <param name="logger">日志记录器</param>
         public CrawlerHub(CrawlerEngine crawlerEngine, ILogger<CrawlerHub> logger)
         {
             _crawlerEngine = crawlerEngine;
@@ -23,19 +36,23 @@ namespace CrawlerMonitor.Hubs
             _crawlerEngine.OnUrlDiscovered += OnUrlDiscovered;
             _crawlerEngine.OnStatusChanged += OnStatusChanged;
         }
-
+        /// <summary>
+        /// 爬取完成事件处理程序
+        /// </summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">爬取完成事件参数</param>
         private async void OnCrawlCompleted(object? sender, CrawlCompletedEventArgs e)
         {
             try
             {
                 await Clients.All.SendAsync("CrawlCompleted", new
                 {
-                    e.Result.Request.Url,
-                    e.Result.ProcessedAt,
-                    e.Result.DownloadResult.StatusCode,
-                    e.Result.DownloadResult.ContentType,
-                    LinksFound = e.Result.ParseResult?.Links?.Count ?? 0,
-                    ProcessingTime = e.Result.ProcessingTime.TotalMilliseconds
+                    e.Url,
+                    e.Depth,
+                    e.ContentType,
+                    e.ContentLength,
+                    LinksFound = e.DiscoveredUrls,
+                    Timestamp = DateTime.UtcNow
                 });
             }
             catch (Exception ex)
@@ -43,14 +60,20 @@ namespace CrawlerMonitor.Hubs
                 _logger.LogError(ex, "Failed to send crawl completed notification");
             }
         }
-
+        /// <summary>
+        /// 爬取错误事件处理程序
+        /// </summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">爬取错误事件参数</param>
         private async void OnCrawlError(object? sender, CrawlErrorEventArgs e)
         {
             try
             {
                 await Clients.All.SendAsync("CrawlError", new
                 {
-                    e.Request.Url,
+                    e.Url,
+                    e.Depth,
+                    e.ErrorMessage,
                     e.Exception.Message,
                     e.Exception.StackTrace,
                     Timestamp = DateTime.UtcNow
@@ -61,7 +84,11 @@ namespace CrawlerMonitor.Hubs
                 _logger.LogError(ex, "Failed to send crawl error notification");
             }
         }
-
+        /// <summary>
+        /// URL发现事件处理程序
+        /// </summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">URL发现事件参数</param> 
         private async void OnUrlDiscovered(object? sender, UrlDiscoveredEventArgs e)
         {
             try
@@ -69,8 +96,8 @@ namespace CrawlerMonitor.Hubs
                 await Clients.All.SendAsync("UrlDiscovered", new
                 {
                     e.SourceUrl,
-                    e.DiscoveredUrl,
-                    e.Depth,
+                    e.DiscoveredUrls,
+                    e.AddedUrls,
                     Timestamp = DateTime.UtcNow
                 });
             }
@@ -79,7 +106,11 @@ namespace CrawlerMonitor.Hubs
                 _logger.LogError(ex, "Failed to send URL discovered notification");
             }
         }
-
+        /// <summary>
+        /// 爬虫状态改变事件处理程序
+        /// </summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">爬虫状态改变事件参数</param> 
         private async void OnStatusChanged(object? sender, CrawlerStatusChangedEventArgs e)
         {
             try
@@ -97,7 +128,10 @@ namespace CrawlerMonitor.Hubs
                 _logger.LogError(ex, "Failed to send status changed notification");
             }
         }
-
+        /// <summary>
+        /// 客户端连接事件处理程序
+        /// </summary>
+        /// <returns>异步任务</returns>
         public override async Task OnConnectedAsync()
         {
             _logger.LogInformation("Client connected: {ConnectionId}", Context.ConnectionId);
@@ -113,7 +147,11 @@ namespace CrawlerMonitor.Hubs
 
             await base.OnConnectedAsync();
         }
-
+        /// <summary>
+        /// 客户端断开连接事件处理程序
+        /// </summary>
+        /// <param name="exception">异常信息</param>
+        /// <returns>异步任务</returns>
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             _logger.LogInformation("Client disconnected: {ConnectionId}", Context.ConnectionId);
@@ -121,6 +159,10 @@ namespace CrawlerMonitor.Hubs
         }
 
         // 新增：客户端可以请求当前状态
+        /// <summary>
+        /// 请求当前状态事件处理程序
+        /// </summary>
+        /// <returns>异步任务</returns>
         public async Task RequestCurrentStatus()
         {
             var statistics = await _crawlerEngine.GetStatisticsAsync();
@@ -138,6 +180,11 @@ namespace CrawlerMonitor.Hubs
         }
 
         // 新增：客户端可以控制爬虫
+        /// <summary>
+        /// 控制爬虫事件处理程序
+        /// </summary>
+        /// <param name="action">控制操作（start/stop/pause/resume）</param>
+        /// <returns>异步任务</returns>
         public async Task ControlCrawler(string action)
         {
             try

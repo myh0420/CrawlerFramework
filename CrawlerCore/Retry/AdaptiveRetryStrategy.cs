@@ -5,18 +5,20 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using CrawlerInterFaces.Interfaces;
 
 namespace CrawlerCore.Retry
 {
     /// <summary>
     /// 智能重试策略
     /// </summary>
-    public class AdaptiveRetryStrategy(ILogger<AdaptiveRetryStrategy>? logger, int baseMaxRetries = 3)
+    public class AdaptiveRetryStrategy(ILogger<AdaptiveRetryStrategy>? logger, int baseMaxRetries = 3) : ICrawlerComponent
     {
         private readonly ILogger<AdaptiveRetryStrategy> _logger = logger ?? new Logger<AdaptiveRetryStrategy>(new LoggerFactory());
         private readonly Dictionary<string, DomainRetryInfo> _domainRetryInfo = [];
         private readonly Lock _lock = new();
         private readonly int _baseMaxRetries = baseMaxRetries;
+        private bool _isInitialized = false;
 
         public async Task<bool> ShouldRetryAsync(string domain, Exception exception, int currentRetryCount)
         {
@@ -354,6 +356,31 @@ namespace CrawlerCore.Retry
 
             // 新域名或错误较少的域名，给更多重试机会
             return currentRetryCount < 2;
+        }
+
+        public Task InitializeAsync()
+        {
+            if (!_isInitialized)
+            {
+                _isInitialized = true;
+                _logger.LogDebug("AdaptiveRetryStrategy initialized successfully with base max retries: {BaseMaxRetries}", _baseMaxRetries);
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task ShutdownAsync()
+        {
+            if (_isInitialized)
+            {
+                _isInitialized = false;
+                // 清理资源
+                lock (_lock)
+                {
+                    _domainRetryInfo.Clear();
+                }
+                _logger.LogDebug("AdaptiveRetryStrategy shutdown successfully");
+            }
+            return Task.CompletedTask;
         }
     }
 }

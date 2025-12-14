@@ -11,11 +11,26 @@ namespace CrawlerDownloader.Services
     /// </summary>
     public class RotatingUserAgentService
     {
+        /// <summary>
+        /// 内部 ILogger 实例
+        /// </summary>
         private readonly ILogger<RotatingUserAgentService>? _logger;
+        /// <summary>
+        /// User-Agent 列表
+        /// </summary>
         private readonly List<string> _userAgents;
+        /// <summary>
+        /// 随机数生成器
+        /// </summary>
         private readonly Random _random;
+        /// <summary>
+        /// 当前 User-Agent 索引
+        /// </summary>
         private int _currentIndex;
-
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="logger">ILogger 实例（可选）</param>
         public RotatingUserAgentService(ILogger<RotatingUserAgentService>? logger = null)
         {
             _logger = logger ?? new Logger<RotatingUserAgentService>(new LoggerFactory());

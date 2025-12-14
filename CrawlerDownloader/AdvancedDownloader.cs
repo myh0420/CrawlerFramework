@@ -29,32 +29,102 @@ using System.Threading.Tasks;
 
 namespace CrawlerDownloader
 {
+    /// <summary>
+    /// 高级下载器，用于异步下载URL内容
+    /// </summary>
     public class AdvancedDownloader : IDownloader
     {
+        /// <summary>
+        /// 初始化AdvancedDownloader类的新实例
+        /// </summary>
         private readonly SimpleHttpClientManager _httpClientManager;
+        /// <summary>
+        /// 日志记录器
+        /// </summary>
         private readonly ILogger<AdvancedDownloader> _logger;
+        /// <summary>
+        /// 用户代理服务
+        /// </summary>
         private readonly RotatingUserAgentService? _userAgentService;
+        /// <summary>
+        /// 代理管理器
+        /// </summary>
         private readonly ProxyManager? _proxyManager;
+        /// <summary>
+        /// 反爬虫检测服务
+        /// </summary>
         private readonly AntiBotDetectionService? _antiBotService;
+        /// <summary>
+        /// 重试策略
+        /// </summary>
         private readonly AdaptiveRetryStrategy? _retryStrategy;
+        /// <summary>
+        /// Robots.txt解析器
+        /// </summary>
         private readonly RobotsTxtParser? _robotsTxtParser;
+        /// <summary>
+        /// 指标服务
+        /// </summary>
         private readonly CrawlerMetrics? _metrics;
+        /// <summary>
+        /// 错误处理服务
+        /// </summary>
         private readonly IErrorHandlingService? _errorHandlingService;
+        /// <summary>
+        /// 代理处理程序缓存
+        /// </summary>
         private readonly ConcurrentDictionary<string, HttpClientHandler> _proxyHandlerCache = new();
+        /// <summary>
+        /// 代理处理程序信号量
+        /// </summary>
         private readonly SemaphoreSlim _proxyHandlerSemaphore = new(1);
 
+        /// <summary>
+        /// 数据导出服务
+        /// </summary>
         private readonly DataExportService? _dataExporter; // 添加这个字段
-
+        /// <summary>
+        /// 是否使用代理
+        /// </summary>
         private readonly bool _useProxies;
-
+        /// <summary>
+        /// 配置
+        /// </summary>
         private readonly AdvancedCrawlConfiguration _config;
-
+        /// <summary>
+        /// 构造函数
+        /// </summary>
         public int ConcurrentRequests { get; set; } = 10;
+        /// <summary>
+        /// 超时时间
+        /// </summary>
         public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
-
+        /// <summary>
+        /// 信号量，用于控制并发请求数
+        /// </summary>
         private readonly SemaphoreSlim _semaphore;
 
         // 完整的构造函数
+        /// <summary>
+        /// 初始化AdvancedDownloader类的新实例
+        /// </summary>
+        /// <param name="logger">日志记录器</param>
+        /// <param name="config">高级爬取配置</param>
+        /// <param name="httpClientManager">HTTP客户端管理器</param>
+        /// <param name="userAgentService">用户代理服务</param>
+        /// <param name="proxyManager">代理管理器</param>
+        /// <param name="errorHandlingService">错误处理服务</param>
+        /// <param name="antiBotService">反爬虫检测服务</param>
+        /// <param name="retryStrategy">重试策略</param>
+        /// <param name="robotsTxtParser">Robots.txt解析器</param>
+        /// <param name="metrics">指标服务</param>
+        /// <param name="dataExporter">数据导出服务</param>
+        /// s<remarks>
+        /// 此构造函数用于初始化AdvancedDownloader类的新实例。
+        /// 它接受多个参数，包括日志记录器、高级爬取配置、HTTP客户端管理器、用户代理服务、代理管理器、错误处理服务、反爬虫检测服务、重试策略、Robots.txt解析器、指标服务和数据导出服务。
+        /// 构造函数会根据配置初始化并发请求数、超时时间、信号量、是否使用代理等属性。
+        /// 它还会根据配置添加代理到代理管理器中。
+        /// </remarks>
         public AdvancedDownloader(
             ILogger<AdvancedDownloader> logger,
             AdvancedCrawlConfiguration config,
@@ -91,7 +161,15 @@ namespace CrawlerDownloader
                 }
             }
         }
-
+        /// <summary>
+        /// 异步下载URL内容
+        /// </summary>
+        /// <param name="request">下载请求</param>
+        /// <returns>下载结果</returns>
+        /// <remarks>
+        /// 此方法用于异步下载URL内容，包括处理重试、Robots.txt检查、反爬虫检测等。
+        /// 如果下载成功，则返回包含内容的DownloadResult；否则返回包含错误信息的DownloadResult。
+        /// </remarks>
         public async Task<DownloadResult> DownloadAsync(CrawlRequest request)
         {
             await _semaphore.WaitAsync();
@@ -104,7 +182,15 @@ namespace CrawlerDownloader
                 _semaphore.Release();
             }
         }
-
+        /// <summary>
+        /// 异步下载URL内容
+        /// </summary>
+        /// <param name="request">下载请求</param>
+        /// <returns>下载结果</returns>
+        /// <remarks>
+        /// 此方法用于异步下载URL内容，包括处理重试、Robots.txt检查、反爬虫检测等。
+        /// 如果下载成功，则返回包含内容的DownloadResult；否则返回包含错误信息的DownloadResult。
+        /// </remarks>
         private async Task<DownloadResult> DownloadWithRetryAsync(CrawlRequest request)
         {
             int retryCount = 0;
@@ -218,6 +304,14 @@ namespace CrawlerDownloader
             };
         }
 
+        /// <summary>
+        /// 创建模拟的HttpResponseMessage
+        /// </summary>
+        /// <param name="result">下载结果</param>
+        /// <returns>模拟的HttpResponseMessage</returns>
+        /// <remarks>
+        /// 此方法用于创建模拟的HttpResponseMessage，用于反爬虫检测。
+        /// </remarks>
         private static HttpResponseMessage CreateMockResponse(DownloadResult result)
         {
             var response = new HttpResponseMessage((System.Net.HttpStatusCode)result.StatusCode);
@@ -227,7 +321,16 @@ namespace CrawlerDownloader
             }
             return response;
         }
-
+        /// <summary>
+        /// 内部下载方法
+        /// </summary>
+        /// <param name="request">要下载的请求</param>
+        /// <returns>下载结果</returns>
+        /// <exception cref="DownloadException">下载过程中发生的异常</exception>
+        /// <remarks>
+        /// 此方法是下载过程的核心，负责实际的HTTP请求和响应处理。
+        /// 它会根据配置使用代理服务器，处理重试逻辑，记录指标和异常。
+        /// </remarks>
         private async Task<DownloadResult> DownloadInternalAsync(CrawlRequest request)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -341,7 +444,14 @@ namespace CrawlerDownloader
                 stopwatch.Stop();
             }
         }
-
+        /// <summary>
+        /// 创建HttpRequestMessage
+        /// </summary>
+        /// <param name="request">要下载的请求</param>
+        /// <returns>创建的HttpRequestMessage</returns>
+        /// <remarks>
+        /// 此方法用于创建HttpRequestMessage，设置方法、URL、User-Agent和Referrer等头信息。
+        /// </remarks>
         private HttpRequestMessage CreateHttpRequestMessage(CrawlRequest request)
         {
             var message = new HttpRequestMessage(
@@ -366,7 +476,15 @@ namespace CrawlerDownloader
 
             return message;
         }
-
+        /// <summary>
+        /// 处理HTTP响应内容
+        /// </summary>
+        /// <param name="response">HTTP响应消息</param>
+        /// <returns>处理后的内容字符串</returns>
+        /// <remarks>
+        /// 此方法用于处理HTTP响应内容，包括解压缩和编码检测。
+        /// 它会根据Content-Encoding头信息解压缩内容，然后根据字符集检测编码。
+        /// </remarks>
         private async Task<string> ProcessResponseAsync(HttpResponseMessage response)
         {
             var contentBytes = await response.Content.ReadAsByteArrayAsync();
@@ -385,7 +503,14 @@ namespace CrawlerDownloader
             var encoding = DetectEncoding(contentBytes, response);
             return encoding.GetString(contentBytes);
         }
-
+        /// <summary>
+        /// 解压缩Gzip压缩数据
+        /// </summary>
+        /// <param name="compressedData">压缩后的字节数组</param>
+        /// <returns>解压缩后的字节数组</returns>
+        /// <remarks>
+        /// 此方法用于解压缩Gzip压缩数据，返回解压缩后的字节数组。
+        /// </remarks>
         private static byte[] DecompressGzip(byte[] compressedData)
         {
             using var compressedStream = new MemoryStream(compressedData);
@@ -394,7 +519,14 @@ namespace CrawlerDownloader
             gzipStream.CopyTo(resultStream);
             return resultStream.ToArray();
         }
-
+        /// <summary>
+        /// 解压缩Deflate压缩数据
+        /// </summary>
+        /// <param name="compressedData">压缩后的字节数组</param>
+        /// <returns>解压缩后的字节数组</returns>
+        /// <remarks>
+        /// 此方法用于解压缩Deflate压缩数据，返回解压缩后的字节数组。
+        /// </remarks>
         private static byte[] DecompressDeflate(byte[] compressedData)
         {
             using var compressedStream = new MemoryStream(compressedData);
@@ -403,7 +535,16 @@ namespace CrawlerDownloader
             deflateStream.CopyTo(resultStream);
             return resultStream.ToArray();
         }
-
+        /// <summary>
+        /// 检测HTTP响应内容的编码
+        /// </summary>
+        /// <param name="content">HTTP响应内容的字节数组</param>
+        /// <param name="response">HTTP响应消息</param>
+        /// <returns>检测到的编码</returns>
+        /// <remarks>
+        /// 此方法用于检测HTTP响应内容的编码，包括从HTTP头和HTML meta标签中提取编码。
+        /// 如果无法检测到编码，则返回UTF-8编码。
+        /// </remarks>
         private Encoding DetectEncoding(byte[] content, HttpResponseMessage response)
         {
             // 从HTTP头获取编码
@@ -435,7 +576,17 @@ namespace CrawlerDownloader
             return Encoding.UTF8;
         }
 
-        // 数据导出方法
+        /// <summary>
+        /// 异步导出数据到指定文件
+        /// </summary>
+        /// <typeparam name="T">数据类型</typeparam>
+        /// <param name="data">要导出的数据集合</param>
+        /// <param name="filePath">导出文件的路径</param>
+        /// <returns>如果导出成功则返回true，否则返回false</returns>
+        /// <remarks>
+        /// 此方法用于异步导出数据到指定文件，支持多种数据类型。
+        /// 如果数据导出服务未配置或初始化失败，则返回false。
+        /// </remarks>
         public async Task<bool> ExportDataAsync<T>(IEnumerable<T> data, string filePath)
         {
             if (_dataExporter == null)
@@ -454,14 +605,27 @@ namespace CrawlerDownloader
                 return false;
             }
         }
-
+        /// <summary>
+        /// 异步初始化下载器
+        /// </summary>
+        /// <returns>初始化完成的任务</returns>
+        /// <remarks>
+        /// 此方法用于异步初始化下载器，包括初始化HTTP客户端管理器和数据导出服务。
+        /// 如果初始化失败，则记录警告日志。
+        /// </remarks>
         public Task InitializeAsync()
         {
             _logger.LogInformation("AdvancedDownloader initialized with {ConcurrentRequests} concurrent requests",
                 ConcurrentRequests);
             return Task.CompletedTask;
         }
-
+        /// <summary>
+        /// 异步关闭下载器
+        /// </summary>
+        /// <returns>关闭完成的任务</returns>
+        /// <remarks>
+        /// 此方法用于异步关闭下载器，包括释放HTTP客户端管理器和缓存的代理处理器。
+        /// </remarks>
         public Task ShutdownAsync()
         {
             _httpClientManager?.Dispose();

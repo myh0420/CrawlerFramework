@@ -19,18 +19,37 @@ namespace CrawlerStorage
     /// </summary>
     public class SQLiteStorage : IStorageProvider, IMetadataStore, IDisposable
     {
+        /// <summary>
+        /// SQLite 存储实现
+        /// </summary>
         private readonly SQLiteConnection _connection;
+        /// <summary>
+        /// 日志记录器
+        /// </summary>
         private readonly ILogger<SQLiteStorage> _logger;
+        /// <summary>
+        /// 数据库路径
+        /// </summary>
         private readonly string _databasePath;
+        /// <summary>
+        /// 是否已释放
+        /// </summary>
         private bool _disposed = false;
-
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="databasePath">数据库路径</param>
+        /// <param name="logger">日志记录器</param>
         public SQLiteStorage(string? databasePath, ILogger<SQLiteStorage>? logger)
         {
             _databasePath = databasePath ?? "crawler.db";
             _logger = logger ?? new Logger<SQLiteStorage>(new LoggerFactory());
             _connection = new SQLiteConnection($"Data Source={_databasePath};Version=3;");
         }
-
+        /// <summary>
+        /// 初始化数据库
+        /// </summary>
+        /// <returns>任务</returns>
         public async Task InitializeAsync()
         {
             try
@@ -45,7 +64,10 @@ namespace CrawlerStorage
                 throw;
             }
         }
-
+        /// <summary>
+        /// 创建数据库表
+        /// </summary>
+        /// <returns>任务</returns>
         private async Task CreateTablesAsync()
         {
             var commands = new[]
@@ -148,7 +170,10 @@ namespace CrawlerStorage
             await CreateIndexesAsync();
             await EnableForeignKeysAsync();
         }
-
+        /// <summary>
+        /// 创建数据库索引
+        /// </summary>
+        /// <returns>任务</returns>
         private async Task CreateIndexesAsync()
         {
             var indexCommands = new[]
@@ -180,7 +205,10 @@ namespace CrawlerStorage
                 }
             }
         }
-
+        /// <summary>
+        /// 启用外键约束
+        /// </summary>
+        /// <returns>任务</returns>
         private async Task EnableForeignKeysAsync()
         {
             try
@@ -193,7 +221,11 @@ namespace CrawlerStorage
                 _logger.LogWarning(ex, "Failed to enable foreign keys");
             }
         }
-
+        /// <summary>
+        /// 异步保存爬取结果
+        /// </summary>
+        /// <param name="result">爬取结果</param>
+        /// <returns>任务</returns>
         public async Task SaveAsync(CrawlResult result)
         {
             using var transaction = _connection.BeginTransaction();
@@ -263,7 +295,13 @@ namespace CrawlerStorage
                 throw;
             }
         }
-
+        /// <summary>
+        /// 异步保存提取的数据
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <param name="extractedData">提取的数据</param>
+        /// <param name="transaction">数据库事务</param>
+        /// <returns>任务</returns>
         private async Task SaveExtractedDataAsync(string url, Dictionary<string, object> extractedData, SQLiteTransaction transaction)
         {
             // 先删除旧的提取数据
@@ -289,7 +327,13 @@ namespace CrawlerStorage
                 await insertCommand.ExecuteNonQueryAsync();
             }
         }
-
+        /// <summary>
+        /// 异步保存链接
+        /// </summary>
+        /// <param name="sourceUrl">源URL</param>
+        /// <param name="links">链接列表</param>
+        /// <param name="transaction">数据库事务</param>
+        /// <returns>任务</returns>
         private async Task SaveLinksAsync(string sourceUrl, List<string> links, SQLiteTransaction transaction)
         {
             // 先删除旧的链接
@@ -311,7 +355,13 @@ namespace CrawlerStorage
                 await insertCommand.ExecuteNonQueryAsync();
             }
         }
-
+        /// <summary>
+        /// 异步保存图片
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <param name="images">图片列表</param>
+        /// <param name="transaction">数据库事务</param>
+        /// <returns>任务</returns>
         private async Task SaveImagesAsync(string url, List<string> images, SQLiteTransaction transaction)
         {
             // 先删除旧的图片
@@ -333,7 +383,12 @@ namespace CrawlerStorage
                 await insertCommand.ExecuteNonQueryAsync();
             }
         }
-
+        /// <summary>
+        /// 异步根据域名获取爬取结果
+        /// </summary>
+        /// <param name="domain">域名</param>
+        /// <param name="limit">限制数量</param>
+        /// <returns>爬取结果列表</returns>
         public async Task<IEnumerable<CrawlResult>> GetByDomainAsync(string domain, int limit = 100)
         {
             var results = new List<CrawlResult>();
@@ -358,7 +413,11 @@ namespace CrawlerStorage
 
             return results;
         }
-
+        /// <summary>
+        /// 异步根据URL获取爬取结果
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>爬取结果</returns>
         public async Task<CrawlResult?> GetByUrlAsync(string url)
         {
             var command = new SQLiteCommand(
@@ -375,7 +434,11 @@ namespace CrawlerStorage
 
             return null;
         }
-
+        /// <summary>
+        /// 异步读取爬取结果
+        /// </summary>
+        /// <param name="reader">SQLite数据读取器</param>
+        /// <returns>爬取结果</returns>
         private async Task<CrawlResult?> ReadCrawlResultAsync(SQLiteDataReader reader)
         {
             try
@@ -426,7 +489,11 @@ namespace CrawlerStorage
                 return null;
             }
         }
-
+        /// <summary>
+        /// 异步根据URL获取提取的数据
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>提取的数据字典</returns>
         private async Task<Dictionary<string, object>> GetExtractedDataAsync(string url)
         {
             var data = new Dictionary<string, object>();
@@ -449,7 +516,11 @@ namespace CrawlerStorage
 
             return data;
         }
-
+        /// <summary>
+        /// 异步根据URL获取链接
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>链接列表</returns>
         private async Task<List<string>> GetLinksAsync(string url)
         {
             var links = new List<string>();
@@ -470,7 +541,11 @@ namespace CrawlerStorage
 
             return links;
         }
-
+        /// <summary>
+        /// 异步根据URL获取图片
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>图片列表</returns>
         private async Task<List<string>> GetImagesAsync(string url)
         {
             var images = new List<string>();
@@ -491,14 +566,21 @@ namespace CrawlerStorage
 
             return images;
         }
-
+        /// <summary>
+        /// 异步获取总记录数
+        /// </summary>
+        /// <returns>总记录数</returns>
         public async Task<long> GetTotalCountAsync()
         {
             var command = new SQLiteCommand("SELECT COUNT(*) FROM CrawlResults", _connection);
             var result = await command.ExecuteScalarAsync();
             return Convert.ToInt64(result);
         }
-
+        /// <summary>
+        /// 异步根据URL删除爬取结果
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>是否删除成功</returns>
         public async Task<bool> DeleteAsync(string url)
         {
             using var transaction = _connection.BeginTransaction();
@@ -530,7 +612,11 @@ namespace CrawlerStorage
                 return false;
             }
         }
-
+        /// <summary>
+        /// 异步保存爬取状态
+        /// </summary>
+        /// <param name="state">爬取状态</param>
+        /// <returns>任务</returns>
         public async Task SaveCrawlStateAsync(CrawlState state)
         {
             var command = new SQLiteCommand(
@@ -553,7 +639,11 @@ namespace CrawlerStorage
 
             await command.ExecuteNonQueryAsync();
         }
-
+        /// <summary>
+        /// 异步根据JobID获取爬取状态
+        /// </summary>
+        /// <param name="jobId">作业ID</param>
+        /// <returns>爬取状态</returns>
         public async Task<CrawlState?> GetCrawlStateAsync(string? jobId)
         {
             if (string.IsNullOrEmpty(jobId)) return null;
@@ -583,12 +673,20 @@ namespace CrawlerStorage
 
             return null;
         }
-
+        /// <summary>
+        /// 异步保存URL状态
+        /// </summary>
+        /// <param name="state">URL状态</param>
+        /// <returns>任务</returns>
         public async Task SaveUrlStateAsync(UrlState state)
         {
             await SaveUrlStateAsync(state, null);
         }
-
+        /// <summary>
+        /// 异步根据URL获取URL状态
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>URL状态</returns>
         private async Task SaveUrlStateAsync(UrlState state, SQLiteTransaction? transaction)
         {
             var commandText = @"INSERT OR REPLACE INTO UrlStates 
@@ -617,7 +715,11 @@ namespace CrawlerStorage
 
             await command.ExecuteNonQueryAsync();
         }
-
+        /// <summary>
+        /// 异步根据URL获取URL状态
+        /// </summary>
+        /// <param name="url">URL</param>
+        /// <returns>URL状态</returns>
         public async Task<UrlState?> GetUrlStateAsync(string url)
         {
             var command = new SQLiteCommand(
@@ -647,6 +749,10 @@ namespace CrawlerStorage
         }
 
         // 新增方法：获取统计信息
+        /// <summary>
+        /// 异步获取爬取统计信息
+        /// </summary>
+        /// <returns>爬取统计信息</returns>
         public async Task<CrawlStatistics> GetStatisticsAsync()
         {
             var stats = new CrawlStatistics();
@@ -709,6 +815,10 @@ namespace CrawlerStorage
         }
 
         // 新增方法：清空所有数据
+        /// <summary>
+        /// 异步清空所有数据
+        /// </summary>
+        /// <returns>任务</returns>
         public async Task ClearAllAsync()
         {
             using var transaction = _connection.BeginTransaction();
@@ -739,6 +849,11 @@ namespace CrawlerStorage
         }
 
         // 新增方法：备份数据库
+        /// <summary>
+        /// 异步备份数据库
+        /// </summary>
+        /// <param name="backupPath">备份路径</param>
+        /// <returns>任务</returns>
         public async Task BackupAsync(string backupPath)
         {
             try
@@ -762,12 +877,19 @@ namespace CrawlerStorage
             }
         }
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        /// <param name="disposing">是否释放托管资源</param>
         protected virtual void Dispose(bool disposing)
         {
             if (!_disposed)
@@ -781,6 +903,10 @@ namespace CrawlerStorage
             }
         }
 
+        /// <summary>
+        /// 异步关闭存储
+        /// </summary>
+        /// <returns>任务</returns>
         public Task ShutdownAsync()
         {
             Dispose();

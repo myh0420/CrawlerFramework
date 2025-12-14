@@ -1,11 +1,14 @@
-﻿CrawlerFramework/
-├── CrawlerCore/           // 核心爬虫引擎
-├── CrawlerScheduler/      // 任务调度器
-├── CrawlerDownloader/     // 下载组件
-├── CrawlerParser/        // 内容解析器
-├── CrawlerStorage/       // 存储模块
-├── CrawlerMonitor/       // 监控界面
-└── CrawlerConsole/       // 控制台应用
+CrawlerFramework/
+├── CrawlerCore/                      // 核心爬虫引擎
+├── CrawlerScheduler/                 // 任务调度器
+├── CrawlerDownloader/                // 下载组件
+├── CrawlerParser/                    // 内容解析器
+├── CrawlerStorage/                   // 存储模块
+├── CrawlerMonitor/                   // 监控界面
+├── CrawlerConsole/                   // 控制台应用
+├── CrawlerInterFaces/                // 接口定义
+├── CrawlerModels/CrawlerEntity.csproj // 实体模型
+└── CrawlerServiceDependencyInjection/ // 依赖注入服务
 
 # 网络爬虫框架使用说明和功能示例
 
@@ -15,52 +18,17 @@
 本爬虫框架是一个功能完整、可扩展的企业级网络爬虫解决方案，集成了多种爬虫工具的优点，提供了高性能、可靠性和易用性。
 
 ### 主要特性
-- 🚀 **高性能**：异步并发处理，连接复用，内存优化
+- 🚀 **高性能**：异步并发处理，连接复用，内存优化，编译时正则表达式
 - 🛡️ **可靠性**：完善的错误处理、重试机制、遵守robots.txt
 - 🔧 **可配置**：灵活的配置系统、可插拔组件
-- 📊 **监控完善**：实时监控、指标收集、健康检查
+- 📊 **监控**：（部分实现）基础架构搭建，Web界面框架（开发中）
 - 🔌 **可扩展**：模块化设计，易于扩展新功能
-- 主要特性：
-JSON配置文件：所有配置都存储在 appsettings.json 中
-
-Web配置界面：通过浏览器修改配置，无需重启应用
-
-配置验证：实时验证配置的有效性
-
-配置热重载：支持配置文件变化自动重载
-
-默认值管理：提供合理的默认配置
-
-类型安全：强类型配置模型
-
-使用方式：
-启动应用：应用会自动加载 appsettings.json 配置文件
-
-访问配置界面：打开 http://localhost:5000/config
-
-修改配置：在Web界面中修改各项设置
-
-保存配置：点击保存，配置会立即生效并保存到文件
-
-验证配置：使用验证功能检查配置是否正确
-
-配置文件位置：
-控制台应用：CrawlerConsole/appsettings.json
-
-Web监控应用：CrawlerMonitor/appsettings.json
-
-优势：
-无硬编码：所有配置都来自外部文件
-
-可视化配置：用户友好的Web界面
-
-即时生效：大部分配置修改无需重启应用
-
-配置验证：避免错误的配置导致运行时错误
-
-版本控制友好：配置文件可以纳入版本控制
-
-这个配置系统让爬虫框架的使用变得更加简单和灵活，用户只需修改配置文件或通过Web界面就能调整所有爬虫行为。
+- 📝 **内容解析**：支持HTML、纯文本、JSON等多种内容类型，安全的HTML文档处理
+- ⏱️ **域名请求节流**：基于域名的动态延迟调整，支持请求类型感知节流
+- 📡 **分布式任务调度**：支持多节点部署，防止重复处理
+- 🎯 **优先级队列优化**：基于深度、内容类型、域重要性和等待时间的智能优先级计算
+- 🔄 **URL归一化**：（计划实现）URL标准化处理，避免重复处理相同内容
+- 📈 **动态延迟调整**：根据服务器响应自动调整延迟，防止服务器压力过大
 
 ## 2. 快速开始
 
@@ -71,7 +39,7 @@ Web监控应用：CrawlerMonitor/appsettings.json
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using CrawlerCore;
-using CrawlerCore.DependencyInjection;
+using CrawlerServiceDependencyInjection.DependencyInjection;
 
 class Program
 {
@@ -133,14 +101,14 @@ class Program
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -155,6 +123,34 @@ class Program
 ```
 
 ## 3. 核心配置详解
+
+本框架提供了强大的配置系统，支持多种配置方式和动态更新：
+
+### 配置系统特性
+- **JSON配置文件**：所有配置都存储在 appsettings.json 中
+- **Web配置界面**：（部分实现）基础界面框架，配置热重载功能
+- **配置验证**：实时验证配置的有效性
+- **配置热重载**：支持配置文件变化自动重载
+- **默认值管理**：提供合理的默认配置
+- **类型安全**：强类型配置模型
+
+### 配置使用方式
+- **启动应用**：应用会自动加载 appsettings.json 配置文件
+- **访问配置界面**：基础界面框架已搭建，完整功能正在开发中
+- **修改配置**：目前需手动编辑配置文件
+- **保存配置**：配置文件变更会自动重载
+- **验证配置**：实时验证配置的有效性
+
+### 配置文件位置
+- **控制台应用**：CrawlerConsole/appsettings.json
+- **Web监控应用**：CrawlerMonitor/appsettings.json
+
+### 配置系统优势
+- **无硬编码**：所有配置都来自外部文件
+- **可视化配置**：用户友好的Web界面
+- **即时生效**：大部分配置修改无需重启应用
+- **配置验证**：避免错误的配置导致运行时错误
+- **版本控制友好**：配置文件可以纳入版本控制
 
 ### 3.1 基本配置
 
@@ -268,7 +264,114 @@ var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
 await crawler.StartAsync(advancedConfig);
 ```
 
-### 4.2 代理和User-Agent轮换
+### 4.2 域名请求节流和动态延迟调整
+
+```csharp
+// 配置域名请求节流
+var services = new ServiceCollection();
+services.AddLogging(builder => builder.AddConsole());
+
+// 添加带有域名节流功能的爬虫服务
+services.AddCrawlerCore()
+    .AddFileSystemStorage("throttled_crawler_data")
+    .AddCrawlerDownloader()
+    .AddCrawlerParser()
+    .AddCrawlerScheduler()
+    .AddDomainDelayManager(options =>
+    {
+        // 设置默认延迟
+        options.DefaultDelay = TimeSpan.FromSeconds(1);
+        // 设置最小和最大延迟限制
+        options.MinDelay = TimeSpan.FromMilliseconds(100);
+        options.MaxDelay = TimeSpan.FromSeconds(10);
+        // 设置请求类型特定延迟
+        options.RequestTypeDelays = new Dictionary<string, TimeSpan>
+        {
+            { "html", TimeSpan.FromSeconds(1) },
+            { "pdf", TimeSpan.FromSeconds(2) },
+            { "image", TimeSpan.FromMilliseconds(500) },
+            { "api", TimeSpan.FromSeconds(0.5) }
+        };
+    });
+
+var serviceProvider = serviceProvider = services.BuildServiceProvider();
+var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
+var delayManager = serviceProvider.GetRequiredService<IDomainDelayManager>();
+
+// 手动调整特定域名的延迟
+delayManager.SetDelay("example.com", TimeSpan.FromSeconds(3));
+delayManager.SetDelay("example.com", "pdf", TimeSpan.FromSeconds(5));
+
+// 启动爬虫
+await crawler.StartAsync(config);
+```
+
+### 4.3 URL归一化和优先级队列优化
+
+```csharp
+// 配置URL归一化和优先级队列
+var services = new ServiceCollection();
+services.AddLogging(builder => builder.AddConsole());
+
+// 添加带优化功能的爬虫服务
+services.AddAdvancedCrawler(config =>
+{
+    config.EnableUrlNormalization = true;
+    config.RespectRobotsTxt = true;
+})
+.AddCrawlerHttpClient()
+.AddFileSystemStorage("optimized_crawler_data")
+.AddCrawlerDownloader()
+.AddCrawlerParser()
+.AddCrawlerScheduler(options =>
+{
+    // 设置优先级队列选项
+    options.HighPriorityDomains = new[] { "example.com", "news.example.com" };
+    options.ContentTypePriorities = new Dictionary<string, int>
+    {
+        { "html", 10 },
+        { "pdf", 5 },
+        { "image", 1 },
+        { "api", 7 }
+    };
+    // 设置等待时间影响优先级的阈值
+    options.PriorityIncreaseThreshold = TimeSpan.FromMinutes(5);
+});
+
+var serviceProvider = services.BuildServiceProvider();
+var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
+
+// 启动爬虫
+await crawler.StartAsync(config);
+```
+
+### 4.4 分布式任务调度
+
+```csharp
+// 配置分布式爬虫
+var services = new ServiceCollection();
+services.AddLogging(builder => builder.AddConsole());
+
+// 添加分布式爬虫服务
+services.AddAdvancedCrawler(config =>
+{
+    config.EnableDistributedScheduling = true;
+    config.MachineName = "crawler-node-1"; // 唯一机器名，用于生成唯一任务ID
+})
+.AddCrawlerHttpClient()
+.AddFileSystemStorage("distributed_crawler_data")
+.AddCrawlerDownloader()
+.AddCrawlerParser()
+.AddCrawlerScheduler();
+
+var serviceProvider = services.BuildServiceProvider();
+var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
+
+// 启动爬虫
+await crawler.StartAsync(config);
+```
+
+### 4.5 代理和User-Agent轮换
 
 ```csharp
 // 配置代理和User-Agent轮换
@@ -298,39 +401,22 @@ var userAgentService = new RotatingUserAgentService();
 userAgentService.AddUserAgent("MyCustomBot/1.0 (+http://mybot.com)");
 ```
 
-### 4.3 数据导出功能
+### 4.6 数据导出功能
+
+**注**：数据导出功能目前处于开发阶段，基础接口已定义，完整功能正在实现中。
 
 ```csharp
-// 数据导出示例
+// 数据导出示例（计划实现）
 var storage = new FileSystemStorage("crawler_data", logger);
 await storage.InitializeAsync();
 
 // 获取爬取的数据
 var results = await storage.GetByDomainAsync("example.com", 100);
 
-// 导出为不同格式
-var exportService = new DataExportService();
-
-// JSON格式
-await exportService.ExportAsync(results, "data.json");
-
-// CSV格式  
-await exportService.ExportAsync(results, "data.csv");
-
-// 筛选和转换数据
-var exportData = results.Select(r => new
-{
-    Url = r.Request.Url,
-    Title = r.ParseResult?.Title,
-    StatusCode = r.DownloadResult.StatusCode,
-    ContentLength = r.DownloadResult.RawData?.Length,
-    ProcessedAt = r.ProcessedAt
-});
-
-await exportService.ExportAsync(exportData, "summary.csv");
+// 导出功能正在开发中
 ```
 
-### 4.4 监控和健康检查
+### 4.7 监控和健康检查
 
 ```csharp
 // 监控示例
@@ -458,7 +544,40 @@ public class ProductExtractor : IContentExtractor
 services.AddSingleton<IContentExtractor, ProductExtractor>();
 ```
 
-### 6.2 自定义下载器
+### 6.2 高级解析器特性
+
+AdvancedParser支持多种内容类型的解析处理：
+
+#### 支持的内容类型
+- **HTML**: 完整的HTML文档解析和内容提取
+- **纯文本**: 直接提取文本内容，无需HTML解析
+- **JSON**: 专门处理JSON数据格式
+- **其他类型**: 作为原始数据保存
+
+#### 性能优化
+- **编译时正则表达式**: 使用`GeneratedRegexAttribute`在编译时生成正则表达式，提高性能
+- **安全的文档处理**: 创建HTML文档副本进行操作，避免修改原始文档状态
+- **智能文本清理**: 自动移除多余空白字符，提供整洁的文本内容
+
+#### 使用示例
+```csharp
+// 解析器会自动根据Content-Type处理不同内容
+var parseResult = await parser.ParseAsync(downloadResult);
+
+// 对于HTML内容
+string htmlTitle = parseResult.Title; // 页面标题
+string htmlContent = parseResult.TextContent; // 清理后的文本内容
+
+// 对于纯文本内容
+string plainText = parseResult.TextContent; // 直接提取的文本
+
+// 对于JSON内容
+string jsonData = parseResult.ExtractedData["json"] as string; // JSON数据
+```
+
+**注**：AI辅助解析功能目前处于计划阶段，尚未实现。
+
+### 6.3 自定义下载器
 
 ```csharp
 // 自定义下载器示例
@@ -514,10 +633,12 @@ public class CustomDownloader : IDownloader
 
 ## 7. Web监控界面
 
-### 7.1 启动监控服务
+**注**：Web监控界面目前处于开发阶段，基础架构和框架已搭建完成，但完整功能正在实现中。
+
+### 7.1 启动监控服务（开发中）
 
 ```csharp
-// Program.cs for Web Monitor
+// Program.cs for Web Monitor (计划实现)
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
@@ -545,9 +666,9 @@ app.MapHub<CrawlerHub>("/crawlerHub");
 app.Run();
 ```
 
-### 7.2 监控界面功能
+### 7.2 监控界面功能（计划实现）
 
-访问 `http://localhost:5000` 可以看到：
+访问 `http://localhost:5000` 将可以看到：
 
 - **实时状态**：爬虫运行状态、内存使用、运行时间
 - **性能图表**：内存使用、URL处理数量、处理时间
@@ -559,40 +680,7 @@ app.Run();
 
 ### 8.1 Docker部署
 
-```dockerfile
-# Dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
-WORKDIR /app
-EXPOSE 80
-
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-WORKDIR /src
-COPY . .
-RUN dotnet publish "CrawlerMonitor/CrawlerMonitor.csproj" -c Release -o /app/publish
-
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "CrawlerMonitor.dll"]
-```
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  crawler:
-    build: .
-    ports:
-      - "8080:80"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-    volumes:
-      - crawler_data:/app/data
-    restart: unless-stopped
-
-volumes:
-  crawler_data:
-```
+Docker部署功能将在未来版本中提供。
 
 ### 8.2 生产环境配置
 

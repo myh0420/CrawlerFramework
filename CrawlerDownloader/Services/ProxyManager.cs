@@ -15,15 +15,45 @@ namespace CrawlerDownloader.Services
     /// </summary>
     public class ProxyServer
     {
+        /// <summary>
+        /// 代理服务器主机名或IP地址
+        /// </summary>
         public string Host { get; set; } = string.Empty;
-        public int Port { get; set; }
+        /// <summary>
+        /// 代理服务器端口号
+        /// </summary>
+        public int Port { get; set; } = 8080;
+        /// <summary>
+        /// 代理服务器用户名
+        /// </summary>
         public string Username { get; set; } = string.Empty;
+        /// <summary>
+        /// 代理服务器密码
+        /// </summary>
         public string Password { get; set; } = string.Empty;
+        /// <summary>
+        /// 代理服务器协议，默认值为"http"
+        /// </summary>
         public string Protocol { get; set; } = "http";
+        /// <summary>
+        /// 失败次数
+        /// </summary>
         public int FailCount { get; set; }
+        /// <summary>
+        /// 成功次数
+        /// </summary>
         public int SuccessCount { get; set; }
+        /// <summary>
+        /// 上次使用时间
+        /// </summary>
         public DateTime LastUsed { get; set; }
+        /// <summary>
+        /// 上次失败时间
+        /// </summary>
         public DateTime LastFailed { get; set; }
+        /// <summary>
+        /// 是否启用
+        /// </summary>
         public bool IsEnabled { get; set; } = true;
 
         /// <summary>
@@ -34,6 +64,7 @@ namespace CrawlerDownloader.Services
         /// <summary>
         /// 成功率
         /// </summary>
+        /// <returns>成功率，范围为0到1</returns>
         public double SuccessRate
         {
             get
@@ -46,6 +77,7 @@ namespace CrawlerDownloader.Services
         /// <summary>
         /// 创建 WebProxy 对象
         /// </summary>
+        /// <returns>配置好的 WebProxy 对象</returns>
         public WebProxy ToWebProxy()
         {
             var proxy = new WebProxy(Host, Port);
@@ -57,7 +89,10 @@ namespace CrawlerDownloader.Services
 
             return proxy;
         }
-
+        /// <summary>
+        /// 转换为字符串表示
+        /// </summary>
+        /// <returns>包含协议、主机、端口、成功次数、失败次数和成功率的字符串</returns>
         public override string ToString()
         {
             return $"{Protocol}://{Host}:{Port} (Success: {SuccessCount}, Fail: {FailCount}, Rate: {SuccessRate:P2})";
@@ -69,10 +104,25 @@ namespace CrawlerDownloader.Services
     /// </summary>
     public class ProxyManager(ILogger? logger = null)
     {
+        /// <summary>
+        /// 内部 ILogger 实例
+        /// </summary>
         private readonly ILogger? _logger = logger;
+        /// <summary>
+        /// 代理服务器列表
+        /// </summary>
         private readonly List<ProxyServer> _proxies = [];
+        /// <summary>
+        /// 随机数生成器
+        /// </summary>
         private readonly Random _random = new();
+        /// <summary>
+        /// 锁对象，用于线程安全操作
+        /// </summary>
         private readonly Lock _lockObject = new();
+        /// <summary>
+        /// 当前代理索引
+        /// </summary>
         private int _currentIndex = 0;
 
         /// <summary>

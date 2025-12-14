@@ -7,14 +7,36 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace CrawlerStorage;
+/// <summary>
+/// 文件系统存储提供程序
+/// </summary>
 public class FileSystemStorage : IStorageProvider, IMetadataStore
 {
+    /// <summary>
+    /// 基础目录
+    /// </summary>
     private readonly string _baseDirectory;
+    /// <summary>
+    /// 内容目录
+    /// </summary>
     private readonly string _contentDirectory;
+    /// <summary>
+    /// 元数据目录
+    /// </summary>
     private readonly string _metadataDirectory;
+    /// <summary>
+    /// 日志记录器
+    /// </summary>
     private readonly ILogger<FileSystemStorage> _logger;
+    /// <summary>
+    /// JSON序列化设置
+    /// </summary>
     private readonly JsonSerializerSettings _jsonSettings;
-
+    /// <summary>
+    /// 初始化文件系统存储提供程序
+    /// </summary>
+    /// <param name="baseDirectory">基础目录</param>
+    /// <param name="logger">日志记录器</param>
     public FileSystemStorage(string? baseDirectory, ILogger<FileSystemStorage>? logger)
     {
         _baseDirectory = baseDirectory ?? "crawler_data";
@@ -30,7 +52,9 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
 
         EnsureDirectories();
     }
-
+    /// <summary>
+    /// 确保目录存在
+    /// </summary>
     private void EnsureDirectories()
     {
         Directory.CreateDirectory(_contentDirectory);
@@ -38,6 +62,11 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         Directory.CreateDirectory(Path.Combine(_metadataDirectory, "crawl_states"));
         Directory.CreateDirectory(Path.Combine(_metadataDirectory, "url_states"));
     }
+    /// <summary>
+    /// 保存爬取结果
+    /// </summary>
+    /// <param name="result">爬取结果</param>
+    /// <returns>任务</returns>
     public async Task SaveAsync(CrawlResult result)
     {
         try
@@ -68,7 +97,12 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             throw;
         }
     }
-
+    /// <summary>
+    /// 保存爬取内容
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="result">爬取结果</param>
+    /// <returns>任务</returns>
     private async Task SaveContentAsync(string filePath, CrawlResult result)
     {
         var contentInfo = new
@@ -96,7 +130,11 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         var json = JsonConvert.SerializeObject(contentInfo, _jsonSettings);
         await File.WriteAllTextAsync(filePath, json);
     }
-
+    /// <summary>
+    /// 获取内容文件路径
+    /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>文件路径</returns>
     private string GetContentFilePath(string url)
     {
         var uri = new Uri(url);
@@ -113,7 +151,12 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         var fileName = $"{host}_{path}_{Guid.NewGuid():N}.json";
         return Path.Combine(_contentDirectory, fileName);
     }
-
+    /// <summary>
+    /// 获取指定域名的爬取结果
+    /// </summary>
+    /// <param name="domain">域名</param>
+    /// <param name="limit">最大返回数量</param>
+    /// <returns>爬取结果列表</returns>
     public async Task<IEnumerable<CrawlResult>> GetByDomainAsync(string domain, int limit = 100)
     {
         var results = new List<CrawlResult>();
@@ -137,7 +180,11 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
 
         return results;
     }
-
+    /// <summary>
+    /// 获取指定URL的爬取结果
+    /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>爬取结果</returns>
     public async Task<CrawlResult?> GetByUrlAsync(string url)
     {
         var files = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
@@ -159,7 +206,11 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
 
         return null;
     }
-
+    /// <summary>
+    /// 反序列化爬取结果
+    /// </summary>
+    /// <param name="json">JSON字符串</param>
+    /// <returns>爬取结果</returns>
     private CrawlResult? DeserializeCrawlResult(string json)
     {
         try
@@ -193,13 +244,20 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             return null;
         }
     }
-
+    /// <summary>
+    /// 获取总记录数
+    /// </summary>
+    /// <returns>记录数</returns>
     public async Task<long> GetTotalCountAsync()
     {
         var files = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
         return await Task.FromResult(files.LongLength);
     }
-
+    /// <summary>
+    /// 删除指定URL的爬取结果
+    /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>是否删除成功</returns>
     public async Task<bool> DeleteAsync(string url)
     {
         var files = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
@@ -230,14 +288,22 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
 
         return false;
     }
-
+    /// <summary>
+    /// 保存爬取状态
+    /// </summary>
+    /// <param name="state">爬取状态</param>
+    /// <returns>任务</returns>
     public async Task SaveCrawlStateAsync(CrawlState state)
     {
         var filePath = Path.Combine(_metadataDirectory, "crawl_states", $"{state.JobId}.json");
         var json = JsonConvert.SerializeObject(state, _jsonSettings);
         await File.WriteAllTextAsync(filePath, json);
     }
-
+    /// <summary>
+    /// 获取指定JobID的爬取状态
+    /// </summary>
+    /// <param name="jobId">JobID</param>
+    /// <returns>爬取状态</returns>
     public async Task<CrawlState?> GetCrawlStateAsync(string? jobId)
     {
         var filePath = Path.Combine(_metadataDirectory, "crawl_states", $"{jobId}.json");
@@ -246,14 +312,22 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         var json = await File.ReadAllTextAsync(filePath);
         return JsonConvert.DeserializeObject<CrawlState>(json);
     }
-
+    /// <summary>
+    /// 保存URL状态
+    /// </summary>
+    /// <param name="state">URL状态</param>
+    /// <returns>任务</returns>
     public async Task SaveUrlStateAsync(UrlState state)
     {
         var filePath = GetUrlStateFilePath(state.Url);
         var json = JsonConvert.SerializeObject(state, _jsonSettings);
         await File.WriteAllTextAsync(filePath, json);
     }
-
+    /// <summary>
+    /// 获取指定URL的URL状态
+    /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>URL状态</returns>
     public async Task<UrlState?> GetUrlStateAsync(string url)
     {
         var filePath = GetUrlStateFilePath(url);
@@ -262,19 +336,29 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         var json = await File.ReadAllTextAsync(filePath);
         return JsonConvert.DeserializeObject<UrlState>(json);
     }
-
+    /// <summary>
+    /// 获取URL状态文件路径
+    /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>文件路径</returns>
     private string GetUrlStateFilePath(string url)
     {
         var urlHash = Convert.ToHexStringLower(MD5.HashData(Encoding.UTF8.GetBytes(url)));
         return Path.Combine(_metadataDirectory, "url_states", $"{urlHash}.json");
     }
-
+    /// <summary>
+    /// 初始化文件系统存储
+    /// </summary>
+    /// <returns>任务</returns>
     public Task InitializeAsync()
     {
         _logger.LogInformation("File system storage initialized at {BaseDirectory}", _baseDirectory);
         return Task.CompletedTask;
     }
-
+    /// <summary>
+    /// 关闭文件系统存储
+    /// </summary>
+    /// <returns>任务</returns>
     public Task ShutdownAsync()
     {
         _logger.LogInformation("File system storage shutdown");
@@ -284,6 +368,7 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 获取统计信息
     /// </summary>
+    /// <returns>统计信息</returns>
     public async Task<CrawlStatistics> GetStatisticsAsync()
     {
         var stats = new CrawlStatistics();
@@ -381,6 +466,7 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 清空所有数据
     /// </summary>
+    /// <returns>任务</returns>
     public async Task ClearAllAsync()
     {
         try
@@ -412,6 +498,8 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 递归删除目录
     /// </summary>
+    /// <param name="directoryPath">目录路径</param>
+    /// <returns>任务</returns>
     private async Task DeleteDirectoryRecursiveAsync(string directoryPath)
     {
         if (!Directory.Exists(directoryPath))
@@ -463,6 +551,8 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 备份数据
     /// </summary>
+    /// <param name="backupPath">备份路径</param>
+    /// <returns>任务</returns>
     public async Task BackupAsync(string backupPath)
     {
         try
@@ -500,6 +590,8 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 创建ZIP备份
     /// </summary>
+    /// <param name="zipFilePath">ZIP文件路径</param>
+    /// <returns>任务</returns>
     private async Task CreateZipBackupAsync(string zipFilePath)
     {
         // 注意：这里需要引用 System.IO.Compression 命名空间
@@ -530,6 +622,9 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 复制目录
     /// </summary>
+    /// <param name="sourceDir">源目录</param>
+    /// <param name="destinationDir">目标目录</param>
+    /// <returns>任务</returns>
     private async Task CopyDirectoryAsync(string sourceDir, string destinationDir)
     {
         if (!Directory.Exists(sourceDir))
@@ -568,6 +663,8 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <summary>
     /// 从URL中提取域名
     /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>域名</returns>
     private static string? GetDomainFromUrl(string url)
     {
         try
@@ -581,5 +678,22 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         }
     }
 
+    /// <summary>
+    /// 从URL中提取路径
+    /// </summary>
+    /// <param name="url">URL</param>
+    /// <returns>路径</returns>
+    private static string? GetPathFromUrl(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            return uri.AbsolutePath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
     
 }

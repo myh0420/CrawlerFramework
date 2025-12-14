@@ -30,6 +30,12 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
     public static class CrawlerServiceCollectionExtensions
     {
         // 添加配置服务
+        /// <summary>
+        /// 添加爬虫配置服务
+        /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <param name="configPath">配置文件路径</param>
+        /// <returns>服务集合</returns>
         public static IServiceCollection AddCrawlerConfiguration(this IServiceCollection services, string configPath = "appsettings.json")
         {
             services.AddSingleton<IConfigValidator, ConfigValidator>();
@@ -45,6 +51,8 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         /// <summary>
         /// 添加爬虫核心服务
         /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <returns>服务集合</returns>
         public static IServiceCollection AddCrawlerCore(this IServiceCollection services)
         {
 
@@ -66,15 +74,18 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
 
             return services;
         }
+        
         // 新增：添加高级爬虫服务
+        /// <summary>
+        /// 添加高级爬虫服务
+        /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <param name="configure">配置回调</param>
+        /// <returns>服务集合</returns>
         public static IServiceCollection AddAdvancedCrawler(this IServiceCollection services, Action<AdvancedCrawlConfiguration>? configure = null)
         {
-            // 加载配置 // 配置高级爬虫设置
-            var configService = services.BuildServiceProvider().GetRequiredService<IConfigService>();
-            var config = configService.GetCurrentConfig().CrawlerConfig.ToAdvancedCrawlConfiguration();
-
-            
-            //var config = new AdvancedCrawlConfiguration();
+            // 创建默认配置
+            var config = new AdvancedCrawlConfiguration();
             configure?.Invoke(config);
 
             services.AddSingleton(config);
@@ -95,16 +106,19 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
             return services;
         }
 
+        
         // 新增：添加 HttpClient 工厂
+        /// <summary>
+        /// 添加 HttpClient 工厂
+        /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <returns>服务集合</returns>
         public static IServiceCollection AddCrawlerHttpClient(this IServiceCollection services)
         {
             services.AddHttpClient("CrawlerClient", (provider, client) =>
             {
                 // 加载配置
-                var configService = provider.GetRequiredService<IConfigService>();
-                var config = configService.LoadConfigAsync().GetAwaiter().GetResult().CrawlerConfig.ToAdvancedCrawlConfiguration();
-
-                //var config = provider.GetService<AdvancedCrawlConfiguration>() ?? new AdvancedCrawlConfiguration();
+                var config = provider.GetService<AdvancedCrawlConfiguration>() ?? new AdvancedCrawlConfiguration();
 
                 client.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds);
                 client.DefaultRequestHeaders.Add("User-Agent",
@@ -122,29 +136,29 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
 
             return services;
         }
-
+        /// <summary>
+        /// 添加存储提供程序
+        /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <param name="databasePath">数据库路径</param>
+        /// <returns>服务集合</returns>
+        /// <remarks>
+        /// 此方法默认使用文件系统存储，避免在注册时依赖配置服务。
+        /// </remarks>
         public static IServiceCollection AddStorageProvider(this IServiceCollection services, string? databasePath = null) {
-            // 构建服务提供者
-            var serviceProvider = services.BuildServiceProvider();
-            // 加载配置
-            var configService = serviceProvider.GetRequiredService<IConfigService>();
-            var config = configService.LoadConfigAsync().GetAwaiter().GetResult();
-            // 添加存储
-            // 配置存储
-            var storageType = config.CrawlerConfig.Storage.Type ?? "FileSystem"; // 或 "SQLite"
-            if (storageType == "SQLite")
-            {
-                return services.AddSQLiteStorage(databasePath ?? "crawler_data.db");
-            }
-            else
-            {
-                return services.AddFileSystemStorage(databasePath ?? "crawler_data");
-            }
+            // 默认使用文件系统存储，避免在注册时依赖配置服务
+            return services.AddFileSystemStorage(databasePath ?? "crawler_data");
         }
 
         /// <summary>
-        /// 添加文件系统存储
+        /// 添加存储提供程序
         /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <param name="baseDirectory">基础目录</param>
+        /// <returns>服务集合</returns>
+        /// <remarks>
+        /// 此方法默认使用文件系统存储，避免在注册时依赖配置服务。
+        /// </remarks>
         public static IServiceCollection AddFileSystemStorage(this IServiceCollection services, string? baseDirectory = null)
         {
             services.TryAddSingleton<IStorageProvider>(provider =>
@@ -165,6 +179,12 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         /// <summary>
         /// 添加SQLite存储
         /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <param name="databasePath">数据库路径</param>
+        /// <returns>服务集合</returns>
+        /// <remarks>
+        /// 此方法默认使用文件系统存储，避免在注册时依赖配置服务。
+        /// </remarks>
         public static IServiceCollection AddSQLiteStorage(this IServiceCollection services, string? databasePath = null)
         {
             services.TryAddSingleton<IStorageProvider>(provider =>
@@ -185,6 +205,12 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         /// <summary>
         /// 添加下载器服务
         /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <param name="useProxies">是否使用代理</param>
+        /// <returns>服务集合</returns>
+        /// <remarks>
+        /// 此方法默认使用文件系统存储，避免在注册时依赖配置服务。
+        /// </remarks>
         public static IServiceCollection AddCrawlerDownloader(this IServiceCollection services, bool useProxies = false)
         {
             // 注册下载器相关服务
@@ -242,6 +268,11 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         /// <summary>
         /// 添加解析器服务
         /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <returns>服务集合</returns>
+        /// <remarks>
+        /// 此方法默认使用文件系统存储，避免在注册时依赖配置服务。
+        /// </remarks>
         public static IServiceCollection AddCrawlerParser(this IServiceCollection services)
         {
             services.TryAddSingleton<IParser, AdvancedParser>();
@@ -251,6 +282,11 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         /// <summary>
         /// 添加调度器服务
         /// </summary>
+        /// <param name="services">服务集合</param>
+        /// <returns>服务集合</returns>
+        /// <remarks>
+        /// 此方法默认使用文件系统存储，避免在注册时依赖配置服务。
+        /// </remarks>
         public static IServiceCollection AddCrawlerScheduler(this IServiceCollection services)
         {
             services.TryAddSingleton<IScheduler, PriorityScheduler>();

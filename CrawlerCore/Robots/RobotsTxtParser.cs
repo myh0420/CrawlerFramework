@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace CrawlerCore.Robots
@@ -12,11 +13,13 @@ namespace CrawlerCore.Robots
     /// <summary>
     /// Robots.txt 遵守
     /// </summary>
-    public class RobotsTxtParser(ILogger<RobotsTxtParser>? logger, HttpClient? httpClient)
+    public class RobotsTxtParser(ILogger<RobotsTxtParser>? logger, HttpClient? httpClient) : ICrawlerComponent
     {
         private readonly ILogger _logger = logger ?? new Logger<RobotsTxtParser>(new LoggerFactory());
         private readonly HttpClient _httpClient = httpClient ?? new HttpClient();
         private readonly Dictionary<string, RobotsTxt> _cache = [];
+        private bool _isInitialized = false;
+        private readonly bool _httpClientCreatedInternally = httpClient == null;
 
         public async Task<bool> IsAllowedAsync(string url, string userAgent = "*")
         {
@@ -73,6 +76,34 @@ namespace CrawlerCore.Robots
         public void ClearCache()
         {
             _cache.Clear();
+        }
+
+        public Task InitializeAsync()
+        {
+            if (!_isInitialized)
+            {
+                _isInitialized = true;
+                _logger.LogDebug("RobotsTxtParser initialized successfully");
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task ShutdownAsync()
+        {
+            if (_isInitialized)
+            {
+                _isInitialized = false;
+                ClearCache();
+                
+                if (_httpClientCreatedInternally)
+                {
+                    _httpClient.Dispose();
+                    _logger.LogDebug("Disposed internal HttpClient");
+                }
+                
+                _logger.LogDebug("RobotsTxtParser shutdown successfully");
+            }
+            return Task.CompletedTask;
         }
     }
 

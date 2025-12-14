@@ -29,17 +29,17 @@ namespace CrawlerConsole
             // 注册事件
             crawler.OnCrawlCompleted += (s, e) => 
             {
-                Console.WriteLine($"Completed: {e.Result.Request.Url}");
+                Console.WriteLine($"Completed: {e.Url} (Depth: {e.Depth})");
             };
 
             crawler.OnCrawlError += (s, e) => 
             {
-                Console.WriteLine($"Error: {e.Request.Url}: {e.Exception.Message}");
+                Console.WriteLine($"Error: {e.Url} (Depth: {e.Depth}): {e.Exception.Message}");
             };
 
             crawler.OnUrlDiscovered += (s, e) => 
             {
-                Console.WriteLine($"Discovered: {e.DiscoveredUrl} (Depth: {e.Depth}) from {e.SourceUrl ?? "seed"}");
+                Console.WriteLine($"Discovered: {e.AddedUrls} new URLs from {e.SourceUrl}, Total discovered: {e.DiscoveredUrls.Count}");
             };
 
             crawler.OnStatusChanged += (s, e) => 

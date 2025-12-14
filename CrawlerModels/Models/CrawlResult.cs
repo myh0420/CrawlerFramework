@@ -11,9 +11,24 @@ namespace CrawlerEntity.Models;
 /// </summary>
 public class CrawlResult
 {
+    /// <summary>
+    /// 爬取请求
+    /// </summary>
     public CrawlRequest Request { get; set; } = new();
+    /// <summary>
+    /// 下载结果
+    /// </summary>
     public DownloadResult DownloadResult { get; set; } = new();
+    /// <summary>
+    /// 解析结果
+    /// </summary>
     public ParseResult ParseResult { get; set; } = new();
+    /// <summary>
+    /// 处理时间
+    /// </summary>
     public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// 处理时间
+    /// </summary>
     public TimeSpan ProcessingTime { get; set; }
 }

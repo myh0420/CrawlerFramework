@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace CrawlerCore.AntiBot;
@@ -18,7 +19,7 @@ public class AntiBotDetectionResult
     public string SuggestedAction { get; set; } = string.Empty;
 }
 
-public class AntiBotDetectionService(ILogger<AntiBotDetectionService>? logger)
+public class AntiBotDetectionService(ILogger<AntiBotDetectionService>? logger) : ICrawlerComponent
 {
     private readonly ILogger<AntiBotDetectionService> _logger = logger ?? new Logger<AntiBotDetectionService>(new LoggerFactory());
     private readonly List<IAntiBotDetector> _detectors = [
@@ -27,6 +28,7 @@ public class AntiBotDetectionService(ILogger<AntiBotDetectionService>? logger)
             new IpBlockDetector(),
             new JsChallengeDetector()
         ];
+    private bool _isInitialized = false;
 
     public async Task<AntiBotDetectionResult> DetectAsync(HttpResponseMessage response, string htmlContent)
     {
@@ -46,6 +48,58 @@ public class AntiBotDetectionService(ILogger<AntiBotDetectionService>? logger)
     public void AddDetector(IAntiBotDetector detector)
     {
         _detectors.Add(detector);
+    }
+    
+    /// <summary>
+    /// 检查是否应该处理给定的URL
+    /// </summary>
+    public bool ShouldProcess(string url)
+    {
+        // 这里可以添加基于URL的过滤规则
+        // 例如：检查是否是已知的反爬虫严格网站
+        try
+        {
+            var uri = new Uri(url);
+            var host = uri.Host;
+            
+            // 示例：添加一些简单的规则
+            var blockedHosts = new List<string> { "example.com" };
+            return !blockedHosts.Contains(host);
+        }
+        catch (UriFormatException ex)
+        {
+            _logger.LogWarning(ex, "Invalid URL: {Url}", url);
+            return false;
+        }
+    }
+
+    public Task InitializeAsync()
+    {
+        if (!_isInitialized)
+        {
+            _isInitialized = true;
+            _logger.LogDebug("AntiBotDetectionService initialized successfully with {DetectorCount} detectors", _detectors.Count);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task ShutdownAsync()
+    {
+        if (_isInitialized)
+        {
+            _isInitialized = false;
+            // 清理检测器资源
+            foreach (var detector in _detectors)
+            {
+                if (detector is IDisposable disposableDetector)
+                {
+                    disposableDetector.Dispose();
+                }
+            }
+            _detectors.Clear();
+            _logger.LogDebug("AntiBotDetectionService shutdown successfully");
+        }
+        return Task.CompletedTask;
     }
 }
 
