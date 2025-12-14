@@ -1,5 +1,6 @@
 // CrawlerMonitor/Hubs/CrawlerHub.cs
 using CrawlerCore;
+using CrawlerEntity.Configuration;
 using CrawlerEntity.Events;
 using CrawlerEntity.Enums;
 using Microsoft.AspNetCore.SignalR;
@@ -192,9 +193,17 @@ namespace CrawlerMonitor.Hubs
                 switch (action.ToLower())
                 {
                     case "start":
-                        // 需要配置信息，这里简化处理
+                        // 使用简化配置启动爬虫
+                        var crawlConfig = new AdvancedCrawlConfiguration
+                        {
+                            MaxConcurrentTasks = 5,
+                            MaxDepth = 2,
+                            SeedUrls = [ "https://example.com" ],
+                            RetryPolicy = new RetryPolicy { MaxRetries = 3, InitialDelay = TimeSpan.FromMilliseconds(1000) }
+                        };
+                        await _crawlerEngine.StartAsync(crawlConfig);
                         await Clients.Caller.SendAsync("ControlResult",
-                            new { Success = false, Message = "Start action requires configuration" });
+                            new { Success = true, Message = "Crawler started with default configuration" });
                         break;
 
                     case "stop":
@@ -225,7 +234,7 @@ namespace CrawlerMonitor.Hubs
             {
                 _logger.LogError(ex, "Failed to execute control action: {Action}", action);
                 await Clients.Caller.SendAsync("ControlResult",
-                    new { Success = false, ex.Message });
+                    new { Success = false, Message = ex.Message });
             }
         }
     }

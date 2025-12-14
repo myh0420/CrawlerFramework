@@ -57,4 +57,8 @@ public class CrawlConfiguration
     /// 输出目录，用于文件系统存储
     /// </summary>
     public string OutputDirectory { get; set; } = "crawled_data";
+    /// <summary>
+    /// 种子URL列表，用于开始爬取
+    /// </summary>
+    public List<string> SeedUrls { get; set; } = [];
 }

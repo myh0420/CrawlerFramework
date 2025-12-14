@@ -9,6 +9,7 @@ using CrawlerCore.Health;
 using CrawlerCore.Metrics;
 using CrawlerCore.Retry;
 using CrawlerCore.Robots;
+using CrawlerCore.AI;
 using CrawlerCore.Services;
 using CrawlerCore.Utils;
 using CrawlerDownloader;
@@ -98,6 +99,8 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
             services.TryAddSingleton<DataExportService>();
             services.TryAddSingleton<CrawlerMetrics>();
             services.TryAddSingleton<RobotsTxtParser>();
+            services.TryAddSingleton<IAIHelper, AIAssistedHelper>();
+            // AIAssistedExtractor is managed by AdvancedParser, not registered directly
 
             // 注册健康检查
             services.AddHealthChecks()

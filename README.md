@@ -633,12 +633,12 @@ public class CustomDownloader : IDownloader
 
 ## 7. Web监控界面
 
-**注**：Web监控界面目前处于开发阶段，基础架构和框架已搭建完成，但完整功能正在实现中。
+**注**：Web监控界面已实现基本功能，包括实时状态监控、爬虫控制和数据可视化。
 
-### 7.1 启动监控服务（开发中）
+### 7.1 启动监控服务（已实现）
 
 ```csharp
-// Program.cs for Web Monitor (计划实现)
+// Program.cs for Web Monitor (已实现)
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
@@ -666,7 +666,7 @@ app.MapHub<CrawlerHub>("/crawlerHub");
 app.Run();
 ```
 
-### 7.2 监控界面功能（计划实现）
+### 7.2 监控界面功能（已实现）
 
 访问 `http://localhost:5000` 将可以看到：
 

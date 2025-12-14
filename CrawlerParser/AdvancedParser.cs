@@ -24,14 +24,20 @@ public partial class AdvancedParser : IParser
     /// </summary>
     private readonly ILogger<AdvancedParser> _logger;
     /// <summary>
+    /// AI助手
+    /// </summary>
+    private readonly IAIHelper? _aiHelper;
+    /// <summary>
     /// 构造函数，初始化HTML文档对象、提取器字典和日志记录器
     /// </summary>
     /// <param name="logger">日志记录器</param>
-    public AdvancedParser(ILogger<AdvancedParser> logger)
+    /// <param name="aiHelper">AI助手</param>
+    public AdvancedParser(ILogger<AdvancedParser> logger, IAIHelper? aiHelper = null)
     {
         _htmlDocument = new();
         _extractors = [];
         _logger = logger;
+        _aiHelper = aiHelper;
         
         InitializeDefaultExtractors();
     }
@@ -43,6 +49,12 @@ public partial class AdvancedParser : IParser
         AddExtractor("links", new LinkExtractor());
         AddExtractor("metadata", new MetadataExtractor());
         AddExtractor("content", new ContentExtractor());
+        
+        // 如果AI助手可用，添加AI辅助提取器
+        if (_aiHelper != null)
+        {
+            AddExtractor("ai-assistant", new AIAssistedExtractor(_aiHelper, _logger));
+        }
     }
     /// <summary>
     /// 异步解析下载结果，提取链接、元数据和内容
