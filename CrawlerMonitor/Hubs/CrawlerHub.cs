@@ -234,7 +234,7 @@ namespace CrawlerMonitor.Hubs
             {
                 _logger.LogError(ex, "Failed to execute control action: {Action}", action);
                 await Clients.Caller.SendAsync("ControlResult",
-                    new { Success = false, Message = ex.Message });
+                    new { Success = false, ErrorMessage = ex.Message });
             }
         }
     }
