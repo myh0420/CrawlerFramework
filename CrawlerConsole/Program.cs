@@ -1,17 +1,25 @@
-// CrawlerConsole/Program.cs
-
-using CrawlerCore;
-using CrawlerEntity.Configuration;
-using CrawlerEntity.Models;
-using CrawlerServiceDependencyInjection.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+// <copyright file="Program.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
 
 namespace CrawlerConsole
 {
-    class Program
+    using CrawlerCore;
+    using CrawlerEntity.Configuration;
+    using CrawlerEntity.Models;
+    using CrawlerServiceDependencyInjection.DependencyInjection;
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Logging;
+
+    /// <summary>
+    /// 程序入口类.
+    /// </summary>
+    internal class Program
     {
-        static async Task Main()
+        /// <summary>
+        /// 程序入口点.
+        /// </summary>
+        private static async Task Main()
         {
             // 创建服务集合
             var services = new ServiceCollection();
@@ -28,7 +36,7 @@ namespace CrawlerConsole
                 MaxDepth = 2,
                 MaxPages = 100,
                 RequestDelay = TimeSpan.FromMilliseconds(1000),
-                AllowedDomains = [ "example.com" ],
+                AllowedDomains = ["example.com"],
 
                 // 新增配置
                 EnableAntiBotDetection = true,
@@ -38,30 +46,30 @@ namespace CrawlerConsole
                 {
                     MaxRetries = 3,
                     InitialDelay = TimeSpan.FromSeconds(1),
-                    BackoffMultiplier = 2.0
+                    BackoffMultiplier = 2.0,
                 },
                 ProxySettings = new ProxySettings
                 {
-                    Enabled = false
+                    Enabled = false,
                 },
                 MonitoringSettings = new MonitoringSettings
                 {
                     EnableMetrics = true,
-                    MetricsIntervalSeconds = 30
-                }
+                    MetricsIntervalSeconds = 30,
+                },
             };
 
             // 注册事件
-            //crawler.OnCrawlCompleted += (s, e) =>
-            //{
+            // crawler.OnCrawlCompleted += (s, e) =>
+            // {
             //    Console.WriteLine($"Completed: {e.Result.Request.Url}");
-            //};
+            // };
 
-            //crawler.OnCrawlError += (s, e) =>
-            //{
+            // crawler.OnCrawlError += (s, e) =>
+            // {
             //    Console.WriteLine($"Error: {e.Request.Url} - {e.Exception.Message}");
-            //};
-            //var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
+            // };
+            // var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
 
             // 注册所有事件
             crawler.OnCrawlCompleted += (s, e) =>
@@ -106,7 +114,12 @@ namespace CrawlerConsole
         }
 
         // 高级配置示例 - 在 CrawlerConsole/Program.cs 中
-        static void ConfigureServices(IServiceCollection services)
+
+        /// <summary>
+        /// 配置服务依赖注入.
+        /// </summary>
+        /// <param name="services">服务集合.</param>
+        private static void ConfigureServices(IServiceCollection services)
         {
             // 添加日志
             services.AddLogging(builder =>

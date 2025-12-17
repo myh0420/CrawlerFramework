@@ -5,6 +5,8 @@
 namespace CrawlerCore.AntiBot;
 
 using System.Net.Http;
+using System.Threading.Tasks;
+using CrawlerInterFaces.Models;
 
 /// <summary>
 /// 反爬虫策略增强检测器接口.

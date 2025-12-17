@@ -1,0 +1,123 @@
+```
+└── CrawlerFramework
+    ├── CrawlerCore
+    │   ├── AntiBot
+    │   │   ├── AntiBotDetectionService.cs  # 反爬检测服务
+    │   │   ├── AntiBotEvasionService.cs     # 反爬规避服务
+    │   │   ├── CaptchaDetector.cs           # 验证码检测器
+    │   │   ├── CookieTrackingDetector.cs    # Cookie跟踪检测器
+    │   │   ├── IAntiBotDetector.cs          # 反爬检测器接口
+    │   │   ├── IpBlockDetector.cs           # IP封锁检测器
+    │   │   ├── JsChallengeDetector.cs       # JS挑战检测器
+    │   │   ├── RateLimitDetector.cs         # 速率限制检测器
+    │   │   ├── RequestDelayDetector.cs      # 请求延迟检测器
+    │   │   └── UserAgentDetector.cs         # 用户代理检测器
+    │   ├── Configuration
+    │   │   ├── AntiBotConfig.cs             # 反爬配置
+    │   │   ├── AppCrawlerConfig.cs          # 应用爬虫配置
+    │   │   ├── ConfigService.cs             # 配置服务
+    │   │   ├── ConfigServiceFactory.cs      # 配置服务工厂
+    │   │   ├── IConfigService.cs            # 配置服务接口
+    │   │   ├── JsonConfigService.cs         # JSON配置服务
+    │   │   ├── ProxyConfig.cs               # 代理配置
+    │   │   └── ...                          # 其他配置类
+    │   ├── Security
+    │   │   ├── AesSecurityService.cs        # AES加密服务
+    │   │   └── ISecurityService.cs          # 安全服务接口
+    │   ├── CrawlerEngine.cs                 # 爬虫引擎
+    │   └── ...                              # 其他核心组件
+    ├── CrawlerConsole
+    │   ├── Program.cs                       # 控制台程序
+    │   └── ...                              # 其他控制台组件
+    ├── CrawlerDownloader
+    │   ├── Services
+    │   │   ├── ProxyManager.cs              # 代理管理器
+    │   │   └── RotatingUserAgentService.cs  # 旋转用户代理服务
+    │   ├── AdvancedDownloader.cs            # 高级下载器
+    │   └── ...                              # 其他下载器组件
+    ├── CrawlerInterFaces
+    │   ├── Interfaces
+    │   │   ├── IAntiBotEvasionService.cs    # 反爬规避服务接口
+    │   │   └── ...                          # 其他接口
+    │   └── ...                              # 其他接口组件
+    ├── CrawlerModels
+    │   ├── Configuration
+    │   │   └── ...                          # 配置模型
+    │   ├── Models
+    │   │   ├── CrawlRequest.cs              # 爬取请求模型
+    │   │   └── ...                          # 其他模型
+    │   └── ...                              # 其他模型组件
+    ├── CrawlerMonitor
+    │   ├── Controllers
+    │   ├── Views
+    │   └── ...                              # 监控组件
+    ├── CrawlerParser
+    │   ├── AdvancedParser.cs                # 高级解析器
+    │   └── ...                              # 其他解析器组件
+    ├── CrawlerScheduler
+    │   └── PriorityScheduler.cs             # 优先级调度器
+    ├── CrawlerServiceDependencyInjection
+    │   └── ...                              # 依赖注入组件
+    ├── CrawlerStorage
+    │   ├── FileSystemStorage.cs             # 文件系统存储
+    │   ├── MongoDBStorage.cs                # MongoDB存储
+    │   ├── MySQLStorage.cs                  # MySQL存储
+    │   └── ...                              # 其他存储组件
+    ├── CrawlerCore.Tests
+    │   └── ...                              # 测试组件
+    ├── Tools
+    │   └── ...                              # 工具组件
+    └── CrawlerFramework.sln                 # 解决方案文件
+```
+
+### 安全相关组件关系图
+
+```
+AntiBotDetectionService
+├── IAntiBotDetector (接口)
+│   ├── CaptchaDetector
+│   ├── CookieTrackingDetector
+│   ├── IpBlockDetector
+│   ├── JsChallengeDetector
+│   ├── RateLimitDetector
+│   ├── RequestDelayDetector
+│   └── UserAgentDetector
+└── AntiBotEvasionService
+    ├── RotatingUserAgentService
+    └── ProxyManager
+
+JsonConfigService
+├── IConfigService (接口)
+├── ISecurityService (接口)
+│   └── AesSecurityService
+└── ProxyConfig
+    └── EncryptedProxyUrls
+
+CrawlerEngine
+├── AntiBotDetectionService
+├── JsonConfigService
+└── CrawlerDownloader
+    └── AdvancedDownloader
+```
+
+### 安全增强功能点
+
+1. **反爬策略增强**
+   - 文件: CrawlerCore/AntiBot/AntiBotDetectionService.cs
+   - 新增检测器: CookieTrackingDetector, UserAgentDetector, RequestDelayDetector
+   - 功能: 检测Cookie跟踪、用户代理验证、请求延迟要求
+
+2. **数据安全**
+   - 文件: CrawlerCore/Security/AesSecurityService.cs
+   - 功能: AES-256加密敏感配置字段
+   - 集成: JsonConfigService中实现配置加密解密
+   - 受保护数据: 代理URL等敏感配置信息
+
+3. **安全服务接口**
+   - 文件: CrawlerCore/Security/ISecurityService.cs
+   - 功能: 定义加密解密接口，方便扩展其他加密算法
+
+4. **反爬规避服务**
+   - 文件: CrawlerCore/AntiBot/AntiBotEvasionService.cs
+   - 功能: 实现动态用户代理、随机请求延迟、Cookie管理等规避策略
+```

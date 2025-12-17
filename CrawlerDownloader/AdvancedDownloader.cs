@@ -63,6 +63,11 @@ namespace CrawlerDownloader
         private readonly AntiBotDetectionService? antiBotService;
 
         /// <summary>
+        /// 反爬规避服务.
+        /// </summary>
+        private readonly IAntiBotEvasionService? antiBotEvasionService;
+
+        /// <summary>
         /// 重试策略.
         /// </summary>
         private readonly AdaptiveRetryStrategy? retryStrategy;
@@ -125,13 +130,14 @@ namespace CrawlerDownloader
         /// <param name="proxyManager">代理管理器.</param>
         /// <param name="errorHandlingService">错误处理服务.</param>
         /// <param name="antiBotService">反爬虫检测服务.</param>
+        /// <param name="antiBotEvasionService">反爬规避服务.</param>
         /// <param name="retryStrategy">重试策略.</param>
         /// <param name="robotsTxtParser">Robots.txt解析器.</param>
         /// <param name="metrics">指标服务.</param>
         /// <param name="dataExporter">数据导出服务.</param>
         /// <remarks>
         /// 此构造函数用于初始化AdvancedDownloader类的新实例。
-        /// 它接受多个参数，包括日志记录器、高级爬取配置、HTTP客户端管理器、用户代理服务、代理管理器、错误处理服务、反爬虫检测服务、重试策略、Robots.txt解析器、指标服务和数据导出服务。
+        /// 它接受多个参数，包括日志记录器、高级爬取配置、HTTP客户端管理器、用户代理服务、代理管理器、错误处理服务、反爬虫检测服务、反爬规避服务、重试策略、Robots.txt解析器、指标服务和数据导出服务。
         /// 构造函数会根据配置初始化并发请求数、超时时间、信号量、是否使用代理等属性。
         /// 它还会根据配置添加代理到代理管理器中。.
         /// </remarks>
@@ -143,6 +149,7 @@ namespace CrawlerDownloader
             ProxyManager proxyManager,
             IErrorHandlingService? errorHandlingService = null,
             AntiBotDetectionService? antiBotService = null,
+            IAntiBotEvasionService? antiBotEvasionService = null,
             AdaptiveRetryStrategy? retryStrategy = null,
             RobotsTxtParser? robotsTxtParser = null,
             CrawlerMetrics? metrics = null,
@@ -155,6 +162,7 @@ namespace CrawlerDownloader
             this.proxyManager = proxyManager;
             this.errorHandlingService = errorHandlingService;
             this.antiBotService = antiBotService;
+            this.antiBotEvasionService = antiBotEvasionService;
             this.retryStrategy = retryStrategy;
             this.robotsTxtParser = robotsTxtParser;
             this.metrics = metrics;
@@ -664,6 +672,9 @@ namespace CrawlerDownloader
                     throw new DownloadException(request.Url, $"HTTP error: {response.StatusCode}", (int)response.StatusCode);
                 }
 
+                // 处理响应Cookie
+                this.antiBotEvasionService?.ProcessResponseCookies(response, request.Url);
+
                 // 记录响应信息到追踪
                 span.SetAttribute("response.status_code", (int)response.StatusCode);
                 span.SetAttribute("response.is_success", response.IsSuccessStatusCode);
@@ -735,20 +746,28 @@ namespace CrawlerDownloader
                 request.Method == CrawlMethod.GET ? HttpMethod.Get : HttpMethod.Post,
                 request.Url);
 
-            // 轮换User-Agent
-            message.Headers.Add("User-Agent", this.userAgentService?.GetRandomUserAgent());
-
-            // 添加Referrer
-            if (!string.IsNullOrEmpty(request.Referrer))
+            // 如果启用了反爬规避服务，使用它来配置请求
+            if (this.antiBotEvasionService != null)
             {
-                message.Headers.Referrer = new Uri(request.Referrer);
+                this.antiBotEvasionService.ConfigureRequest(message, request.Url);
             }
+            else
+            {
+                // 轮换User-Agent
+                message.Headers.Add("User-Agent", this.userAgentService?.GetRandomUserAgent());
 
-            // 添加其他常用头信息
-            message.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
-            message.Headers.Add("Accept-Language", "en-US,en;q=0.5");
-            message.Headers.Add("Cache-Control", "no-cache");
-            message.Headers.Add("Upgrade-Insecure-Requests", "1");
+                // 添加Referrer
+                if (!string.IsNullOrEmpty(request.Referrer))
+                {
+                    message.Headers.Referrer = new Uri(request.Referrer);
+                }
+
+                // 添加其他常用头信息
+                message.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+                message.Headers.Add("Accept-Language", "en-US,en;q=0.5");
+                message.Headers.Add("Cache-Control", "no-cache");
+                message.Headers.Add("Upgrade-Insecure-Requests", "1");
+            }
 
             return message;
         }

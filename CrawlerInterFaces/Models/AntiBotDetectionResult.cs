@@ -2,14 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.AntiBot;
-
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
-using CrawlerInterFaces.Interfaces;
-using Microsoft.Extensions.Logging;
+namespace CrawlerInterFaces.Models;
 
 /// <summary>
 /// 反爬虫检测结果类，用于存储对URL访问的反爬虫检测结果.

@@ -11,52 +11,34 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using CrawlerInterFaces.Interfaces;
+using CrawlerInterFaces.Models;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// 反爬规避服务，用于管理反爬应对策略.
 /// </summary>
-public class AntiBotEvasionService : ICrawlerComponent
+/// <remarks>
+/// Initializes a new instance of the <see cref="AntiBotEvasionService"/> class.
+/// 初始化 <see cref="AntiBotEvasionService"/> 类的新实例.
+/// </remarks>
+/// <param name="logger">日志记录器实例.如果为null，则使用默认的LoggerFactory创建新实例.</param>
+public class AntiBotEvasionService(ILogger<AntiBotEvasionService>? logger) : IAntiBotEvasionService
 {
     /// <summary>
     /// 日志记录器实例.
     /// </summary>
-    private readonly ILogger<AntiBotEvasionService> logger;
+    private readonly ILogger<AntiBotEvasionService> logger = logger ?? new Logger<AntiBotEvasionService>(new LoggerFactory());
 
     /// <summary>
     /// 随机数生成器.
     /// </summary>
-    private readonly Random random;
+    private readonly Random random = new();
 
     /// <summary>
     /// 常用浏览器的User-Agent列表.
     /// </summary>
-    private readonly List<string> userAgents;
-
-    /// <summary>
-    /// Cookie存储，用于管理不同域名的Cookie.
-    /// </summary>
-    private readonly Dictionary<string, CookieContainer> cookieContainers;
-
-    /// <summary>
-    /// 表示反爬规避服务是否已初始化.
-    /// </summary>
-    private bool isInitialized = false;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AntiBotEvasionService"/> class.
-    /// 初始化 <see cref="AntiBotEvasionService"/> 类的新实例.
-    /// </summary>
-    /// <param name="logger">日志记录器实例.如果为null，则使用默认的LoggerFactory创建新实例.</param>
-    public AntiBotEvasionService(ILogger<AntiBotEvasionService>? logger)
-    {
-        this.logger = logger ?? new Logger<AntiBotEvasionService>(new LoggerFactory());
-        this.random = new Random();
-        this.cookieContainers = new Dictionary<string, CookieContainer>();
-
-        // 初始化常用浏览器的User-Agent列表
-        this.userAgents = new List<string>
-        {
+    private readonly List<string> userAgents =
+        [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/119.0",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0",
@@ -67,8 +49,17 @@ public class AntiBotEvasionService : ICrawlerComponent
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/119.0",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
-        };
-    }
+        ];
+
+    /// <summary>
+    /// Cookie存储，用于管理不同域名的Cookie.
+    /// </summary>
+    private readonly Dictionary<string, CookieContainer> cookieContainers = [];
+
+    /// <summary>
+    /// 表示反爬规避服务是否已初始化.
+    /// </summary>
+    private bool isInitialized = false;
 
     /// <summary>
     /// 为HTTP请求配置反爬规避策略.
@@ -82,7 +73,7 @@ public class AntiBotEvasionService : ICrawlerComponent
         request.Headers.UserAgent.ParseAdd(this.GetRandomUserAgent());
 
         // 添加常见的浏览器头信息
-        this.AddBrowserHeaders(request);
+        AddBrowserHeaders(request);
 
         // 配置Cookie
         this.ConfigureCookies(request, url);
@@ -147,6 +138,42 @@ public class AntiBotEvasionService : ICrawlerComponent
         }
     }
 
+    /// <summary>
+    /// 处理响应中的Cookie，将它们保存到Cookie容器中.
+    /// </summary>
+    /// <param name="response">HTTP响应消息.</param>
+    /// <param name="url">请求的URL.</param>
+    public void ProcessResponseCookies(HttpResponseMessage response, string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            var host = uri.Host;
+
+            // 获取或创建该域名的Cookie容器
+            if (!this.cookieContainers.TryGetValue(host, out var cookieContainer))
+            {
+                cookieContainer = new CookieContainer();
+                this.cookieContainers[host] = cookieContainer;
+            }
+
+            // 处理Set-Cookie头
+            if (response.Headers.TryGetValues("Set-Cookie", out var setCookieHeaders))
+            {
+                foreach (var setCookieHeader in setCookieHeaders)
+                {
+                    // 将Set-Cookie头解析并添加到Cookie容器
+                    cookieContainer.SetCookies(uri, setCookieHeader);
+                    this.logger.LogDebug("Added cookie from Set-Cookie header: {Cookie}", setCookieHeader);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogWarning(ex, "Failed to process response cookies for URL: {Url}", url);
+        }
+    }
+
     /// <inheritdoc/>
     public Task InitializeAsync()
     {
@@ -180,7 +207,7 @@ public class AntiBotEvasionService : ICrawlerComponent
     /// 为请求添加常见的浏览器头信息.
     /// </summary>
     /// <param name="request">要添加头信息的HTTP请求.</param>
-    private void AddBrowserHeaders(HttpRequestMessage request)
+    private static void AddBrowserHeaders(HttpRequestMessage request)
     {
         // 添加Accept头
         request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
@@ -212,7 +239,14 @@ public class AntiBotEvasionService : ICrawlerComponent
                 this.cookieContainers[host] = cookieContainer;
             }
 
-            // 目前仅作为示例，实际应用中需要更复杂的Cookie管理
+            // 从Cookie容器中获取Cookie并添加到请求头
+            var cookieHeader = cookieContainer.GetCookieHeader(uri);
+            if (!string.IsNullOrEmpty(cookieHeader))
+            {
+                request.Headers.Add("Cookie", cookieHeader);
+                this.logger.LogDebug("Added cookies to request: {Cookies}", cookieHeader);
+            }
+
             this.logger.LogDebug("Using cookie container for host: {Host}", host);
         }
         catch (Exception ex)

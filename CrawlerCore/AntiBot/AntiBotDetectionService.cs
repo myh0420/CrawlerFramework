@@ -9,17 +9,23 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using CrawlerInterFaces.Interfaces;
+using CrawlerInterFaces.Models;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// 反爬虫检测服务类，用于检测网站的反爬虫措施并提供相应的处理建议.
 /// </summary>
-public class AntiBotDetectionService : ICrawlerComponent
+/// <remarks>
+/// Initializes a new instance of the <see cref="AntiBotDetectionService"/> class.
+/// 初始化 <see cref="AntiBotDetectionService"/> 类的新实例.
+/// </remarks>
+/// <param name="logger">日志记录器实例，用于记录反爬虫检测相关的日志信息.如果为null，则使用默认的LoggerFactory创建新实例.</param>
+public class AntiBotDetectionService(ILogger<AntiBotDetectionService>? logger) : ICrawlerComponent
 {
     /// <summary>
     /// 日志记录器实例，用于记录反爬虫检测相关的日志信息.
     /// </summary>
-    private readonly ILogger<AntiBotDetectionService> logger;
+    private readonly ILogger<AntiBotDetectionService> logger = logger ?? new Logger<AntiBotDetectionService>(new LoggerFactory());
 
     /// <summary>
     /// 反爬虫检测器列表，包含多种类型的反爬虫检测实现.
@@ -38,16 +44,6 @@ public class AntiBotDetectionService : ICrawlerComponent
     /// 表示反爬虫检测服务是否已初始化.
     /// </summary>
     private bool isInitialized = false;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AntiBotDetectionService"/> class.
-    /// 初始化 <see cref="AntiBotDetectionService"/> 类的新实例.
-    /// </summary>
-    /// <param name="logger">日志记录器实例，用于记录反爬虫检测相关的日志信息.如果为null，则使用默认的LoggerFactory创建新实例.</param>
-    public AntiBotDetectionService(ILogger<AntiBotDetectionService>? logger)
-    {
-        this.logger = logger ?? new Logger<AntiBotDetectionService>(new LoggerFactory());
-    }
 
     /// <summary>
     /// 检测HTTP响应和HTML内容中的反爬虫措施.

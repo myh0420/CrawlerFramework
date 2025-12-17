@@ -6,6 +6,7 @@ namespace CrawlerCore.AntiBot;
 
 using System.Net.Http;
 using System.Threading.Tasks;
+using CrawlerInterFaces.Models;
 
 /// <summary>
 /// User-Agent检测器，用于检测网站是否验证User-Agent. 

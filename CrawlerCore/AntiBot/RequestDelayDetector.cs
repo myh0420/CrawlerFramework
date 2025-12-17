@@ -6,6 +6,7 @@ namespace CrawlerCore.AntiBot;
 
 using System.Net.Http;
 using System.Threading.Tasks;
+using CrawlerInterFaces.Models;
 
 /// <summary>
 /// 请求延迟检测器，用于检测网站是否实现了基于时间的反爬措施.

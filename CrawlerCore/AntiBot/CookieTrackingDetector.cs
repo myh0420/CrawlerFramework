@@ -4,9 +4,10 @@
 
 namespace CrawlerCore.AntiBot;
 
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Linq;
+using CrawlerInterFaces.Models;
 
 /// <summary>
 /// Cookie跟踪检测器，用于检测网站的Cookie跟踪机制.

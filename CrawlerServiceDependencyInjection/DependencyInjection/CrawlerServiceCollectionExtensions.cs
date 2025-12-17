@@ -135,6 +135,7 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
 
             // 注册高级服务
             services.TryAddSingleton<AntiBotDetectionService>();
+            services.TryAddSingleton<IAntiBotEvasionService, AntiBotEvasionService>();
             services.TryAddSingleton<AdaptiveRetryStrategy>(sp =>
                 new AdaptiveRetryStrategy(
                     sp.GetService<ILogger<AdaptiveRetryStrategy>>(),
@@ -340,7 +341,9 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
                 var httpClientManager = provider.GetRequiredService<SimpleHttpClientManager>();
                 var userAgentService = provider.GetRequiredService<RotatingUserAgentService>();
                 var proxyManager = provider.GetRequiredService<ProxyManager>();
+                var errorHandlingService = provider.GetService<IErrorHandlingService>();
                 var antiBotService = provider.GetService<AntiBotDetectionService>();
+                var antiBotEvasionService = provider.GetService<IAntiBotEvasionService>();
                 var retryStrategy = provider.GetRequiredService<AdaptiveRetryStrategy>();
                 var robotsTxtParser = provider.GetService<RobotsTxtParser>();
                 var metrics = provider.GetService<CrawlerMetrics>();
@@ -362,7 +365,9 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
                     httpClientManager: httpClientManager,
                     userAgentService: userAgentService,
                     proxyManager: proxyManager,
+                    errorHandlingService: errorHandlingService,
                     antiBotService: antiBotService,
+                    antiBotEvasionService: antiBotEvasionService,
                     retryStrategy: retryStrategy,
                     robotsTxtParser: robotsTxtParser,
                     metrics: metrics,
