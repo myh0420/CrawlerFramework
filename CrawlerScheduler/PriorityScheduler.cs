@@ -5,11 +5,31 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace CrawlerScheduler;
 /// <summary>
-/// 优先级调度器，支持分布式任务调度和域名请求节流
+/// 优先级调度器，负责管理爬取请求的队列和优先级，并支持域名请求节流
 /// </summary>
+/// <remarks>
+/// <para>PriorityScheduler是爬虫框架的任务调度核心组件，负责：</para>
+/// <list type="bullet">
+/// <item>根据URL优先级、深度、域名性能等因素动态计算请求优先级</item>
+/// <item>管理爬取请求队列，确保高优先级请求优先处理</item>
+/// <item>支持域名请求节流，避免对目标网站造成过大压力</item>
+/// <item>记录和分析域名性能数据，用于动态调整优先级</item>
+/// <item>处理URL标准化和去重</item>
+/// </list>
+/// </remarks>
+/// <param name="urlFilter">URL过滤器，用于判断是否允许处理特定URL</param>
+/// <param name="delayManager">域名延迟管理器，用于控制对同一域名的请求频率</param>
+/// <param name="logger">日志记录器，用于记录运行时信息和错误</param>
+/// <example>
+/// <code>
+/// var scheduler = new PriorityScheduler(urlFilter, delayManager, logger);
+/// var added = await scheduler.AddUrlAsync(new CrawlRequest { Url = "https://example.com", Priority = 10, Depth = 0 });
+/// </code>
+/// </example>
 public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayManager,
     ILogger<PriorityScheduler> logger) : IScheduler
 {
@@ -20,7 +40,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     /// <summary>
     /// 队列锁
     /// </summary>
-    private readonly Lock _queueLock = new();
+    private readonly ReaderWriterLockSlim _queueLock = new();
     /// <summary>
     /// 已处理URL字典
     /// </summary>
@@ -48,9 +68,14 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     {
         get
         {
-            lock (_queueLock)
+            _queueLock.EnterReadLock();
+            try
             {
                 return _priorityQueue.Count;
+            }
+            finally
+            {
+                _queueLock.ExitReadLock();
             }
         }
     }
@@ -62,7 +87,54 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     /// 任务ID前缀
     /// </summary>
     private static string TaskIdPrefix => $"task_{Environment.MachineName}_";
-
+    
+    /// <summary>
+    /// 域名性能数据
+    /// </summary>
+    private class DomainPerformanceData
+    {
+        public int SuccessCount { get; set; } = 0;
+        public int ErrorCount { get; set; } = 0;
+        public long TotalDownloadTimeMs { get; set; } = 0;
+        public long LastDownloadTimeMs { get; set; } = 0;
+        public DateTime LastSuccessTime { get; set; } = DateTime.MinValue;
+        public DateTime LastErrorTime { get; set; } = DateTime.MinValue;
+        
+        public double AverageDownloadTimeMs => SuccessCount > 0 ? (double)TotalDownloadTimeMs / SuccessCount : 0;
+        public double ErrorRate => (SuccessCount + ErrorCount) > 0 ? (double)ErrorCount / (SuccessCount + ErrorCount) : 0;
+    }
+    
+    /// <summary>
+    /// 域名性能数据字典
+    /// </summary>
+    private readonly ConcurrentDictionary<string, DomainPerformanceData> _domainPerformanceData = [];
+    
+    /// <summary>
+    /// 记录域名的下载性能数据
+    /// </summary>
+    /// <param name="domain">域名</param>
+    /// <param name="downloadTimeMs">下载时间（毫秒）</param>
+    /// <param name="isSuccess">是否下载成功</param>
+    public void RecordDomainPerformance(string domain, long downloadTimeMs, bool isSuccess)
+    {
+        var performanceData = _domainPerformanceData.GetOrAdd(domain, _ => new DomainPerformanceData());
+        
+        lock (performanceData)
+        {
+            if (isSuccess)
+            {
+                performanceData.SuccessCount++;
+                performanceData.TotalDownloadTimeMs += downloadTimeMs;
+                performanceData.LastDownloadTimeMs = downloadTimeMs;
+                performanceData.LastSuccessTime = DateTime.UtcNow;
+            }
+            else
+            {
+                performanceData.ErrorCount++;
+                performanceData.LastErrorTime = DateTime.UtcNow;
+            }
+        }
+    }
     /// <summary>
     /// 初始化组件
     /// </summary>
@@ -79,40 +151,53 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     /// <returns>如果URL被添加到队列则返回true，否则返回false</returns>
     public async Task<bool> AddUrlAsync(CrawlRequest request)
     {
-        // URL标准化
-        var normalizedUrl = NormalizeUrl(request.Url);
-        request.Url = normalizedUrl;
-
-        // 检查URL过滤规则
-        if (!_urlFilter.IsAllowed(normalizedUrl))
-            return false;
-
-        // 检查是否已处理
-        if (_processedUrls.ContainsKey(normalizedUrl))
-            return false;
-
-        // 检查域名延迟
-        var domain = new Uri(normalizedUrl).Host;
-        string requestType = GetRequestType(request);
-        if (!await _delayManager.CanProcessAsync(domain, requestType))
-            return false;
-
-        // 生成唯一任务ID
-        request.TaskId = GenerateTaskId(domain);
-        request.QueuedAt = DateTime.UtcNow;
-
-        // 添加到队列
-        var priority = CalculatePriority(request);
-        lock (_queueLock)
+        try
         {
-            _priorityQueue.Enqueue(request, priority);
+            // URL标准化
+            var normalizedUrl = NormalizeUrl(request.Url);
+            request.Url = normalizedUrl;
+
+            // 检查URL过滤规则
+            if (!_urlFilter.IsAllowed(normalizedUrl))
+                return false;
+
+            // 检查是否已处理
+            if (_processedUrls.ContainsKey(normalizedUrl))
+                return false;
+
+            // 检查域名延迟
+            var domain = new Uri(normalizedUrl).Host;
+            string requestType = GetRequestType(request);
+            if (!await _delayManager.CanProcessAsync(domain, requestType))
+                return false;
+
+            // 生成唯一任务ID
+            request.TaskId = GenerateTaskId(domain);
+            request.QueuedAt = DateTime.UtcNow;
+
+            // 添加到队列
+            var priority = CalculatePriority(request);
+            _queueLock.EnterWriteLock();
+            try
+            {
+                _priorityQueue.Enqueue(request, priority);
+            }
+            finally
+            {
+                _queueLock.ExitWriteLock();
+            }
+            _processedUrls[normalizedUrl] = true;
+
+            _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}", 
+                normalizedUrl, priority, request.TaskId);
+
+            return true;
         }
-        _processedUrls[normalizedUrl] = true;
-
-        _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}", 
-            normalizedUrl, priority, request.TaskId);
-
-        return true;
+        catch (UriFormatException ex)
+        {
+            _logger.LogWarning(ex, "Invalid URL format: {Url}", request.Url);
+            return false;
+        }
     }
 
     /// <summary>
@@ -170,7 +255,8 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
         // 批量添加到队列
         if (requestsToAdd.Count > 0)
         {
-            lock (_queueLock)
+            _queueLock.EnterWriteLock();
+            try
             {
                 foreach (var request in requestsToAdd)
                 {
@@ -182,6 +268,10 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                     _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}", 
                         request.Url, priority, request.TaskId);
                 }
+            }
+            finally
+            {
+                _queueLock.ExitWriteLock();
             }
         }
         
@@ -198,7 +288,8 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
         {
             CrawlRequest? request = null;
             
-            lock (_queueLock)
+            _queueLock.EnterWriteLock();
+            try
             {
                 if (_priorityQueue.Count == 0)
                 {
@@ -209,6 +300,10 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                 {
                     request = req;
                 }
+            }
+            finally
+            {
+                _queueLock.ExitWriteLock();
             }
             
             if (request != null)
@@ -281,7 +376,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     /// </summary>
     /// <param name="request">要计算优先级的爬取请求</param>
     /// <returns>计算后的优先级值</returns>
-    private static int CalculatePriority(CrawlRequest request)
+    private int CalculatePriority(CrawlRequest request)
     {
         var priority = request.Priority;
         
@@ -300,6 +395,31 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
         var domain = new Uri(request.Url).Host;
         if (IsHighPriorityDomain(domain))
             priority += 15;
+        
+        // 根据域名性能数据动态调整优先级
+        if (_domainPerformanceData.TryGetValue(domain, out var performanceData))
+        {
+            lock (performanceData)
+            {
+                // 下载速度越快，优先级越高（每快100ms增加1优先级）
+                if (performanceData.AverageDownloadTimeMs > 0)
+                {
+                    var speedBonus = (int)((1000 - Math.Min(1000, performanceData.AverageDownloadTimeMs)) / 100);
+                    priority += speedBonus;
+                }
+                
+                // 错误率越高，优先级越低（错误率每增加10%降低2优先级）
+                var errorPenalty = (int)(performanceData.ErrorRate * 20);
+                priority -= errorPenalty;
+                
+                // 连续错误的域名进一步降低优先级
+                if (performanceData.LastSuccessTime < performanceData.LastErrorTime && 
+                    performanceData.ErrorCount > 3)
+                {
+                    priority -= 5;
+                }
+            }
+        }
         
         // 根据队列等待时间调整优先级（避免饥饿）
         if (request.QueuedAt.HasValue)

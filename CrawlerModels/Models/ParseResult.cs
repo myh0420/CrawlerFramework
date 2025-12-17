@@ -1,61 +1,82 @@
+// <copyright file="ParseResult.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
+
+namespace CrawlerEntity.Models;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CrawlerEntity.Models;
-
 /// <summary>
-/// 解析结果
+/// 解析结果.
 /// </summary>
 public class ParseResult
 {
     /// <summary>
-    /// 解析的URL
+    /// Gets or sets 解析的URL.
     /// </summary>
     public string Url { get; set; } = string.Empty;
+
     /// <summary>
-    /// 发现的链接
+    /// Gets or sets 发现的链接.
     /// </summary>
     public List<string> Links { get; set; } = [];
+
     /// <summary>
-    /// 提取的数据
+    /// Gets or sets 提取的数据.
     /// </summary>
     public Dictionary<string, object> ExtractedData { get; set; } = [];
+
     /// <summary>
-    /// 页面标题
+    /// Gets or sets 页面标题.
     /// </summary>
     public string Title { get; set; } = string.Empty;
+
     /// <summary>
-    /// 页面文本内容
+    /// Gets or sets 页面文本内容.
     /// </summary>
     public string TextContent { get; set; } = string.Empty;
+
     /// <summary>
-    /// 发现的图片URL
+    /// Gets or sets 发现的图片URL.
     /// </summary>
     public List<string> Images { get; set; } = [];
+
     /// <summary>
-    /// 解析错误消息
+    /// Gets or sets 解析错误消息.
     /// </summary>
     public string ErrorMessage { get; set; } = string.Empty;
+
     /// <summary>
-    /// 是否成功解析
+    /// Gets or sets a value indicating whether gets or sets 是否成功解析.
     /// </summary>
     public bool IsSuccess { get; set; } = true;
-    
+
     /// <summary>
-    /// 内容类型
+    /// Gets or sets 解析时间（毫秒）.
+    /// </summary>
+    public long ParseTimeMs { get; set; } = 0;
+
+    /// <summary>
+    /// Gets or sets 内容类型.
     /// </summary>
     public string ContentType { get; set; } = string.Empty;
-    
+
     /// <summary>
-    /// 原始内容
+    /// Gets or sets 原始内容.
     /// </summary>
     public string? Content { get; set; }
-    
+
     /// <summary>
-    /// 发现的URL（与Links相同，为了向后兼容）
+    /// Gets 发现的URL（与Links相同，为了向后兼容）.
     /// </summary>
-    public List<string> DiscoveredUrls => Links;
+    public List<string> DiscoveredUrls => this.Links;
+
+    /// <summary>
+    /// Gets or sets 错误类型.
+    /// </summary>
+    public string ErrorType { get; set; } = string.Empty;
 }

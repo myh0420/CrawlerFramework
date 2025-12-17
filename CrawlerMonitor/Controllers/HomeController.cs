@@ -1,40 +1,82 @@
-using CrawlerCore.Configuration;
-using CrawlerMonitor.Models;
-using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
+// <copyright file="HomeController.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
 
 namespace CrawlerMonitor.Controllers
 {
+    using System.Diagnostics;
+    using CrawlerCore.Configuration;
+    using CrawlerMonitor.Models;
+    using Microsoft.AspNetCore.Mvc;
+
+    /// <summary>
+    /// 首页控制器.
+    /// </summary>
     public class HomeController(
         ILogger<HomeController> logger,
         IConfigService configService,
-        IConfigValidator configValidator
-    ) : Controller
+        IConfigValidator configValidator) : Controller
     {
-        private readonly ILogger<HomeController> _logger = logger;
-        private readonly IConfigService _configService = configService;
-        private readonly IConfigValidator _configValidator = configValidator;
+        /// <summary>
+        /// 日志记录器.
+        /// </summary>
+        private readonly ILogger<HomeController> logger = logger;
 
+        /// <summary>
+        /// 配置服务.
+        /// </summary>
+        private readonly IConfigService configService = configService;
+
+        /// <summary>
+        /// 配置验证器.
+        /// </summary>
+        private readonly IConfigValidator configValidator = configValidator;
+
+        /// <summary>
+        /// 首页.
+        /// </summary>
+        /// <returns>首页视图.</returns>
         public IActionResult Index()
         {
-            return View();
+            return this.View();
         }
 
+        /// <summary>
+        /// 隐私政策.
+        /// </summary>
+        /// <returns>隐私政策视图.</returns>
         public IActionResult Privacy()
         {
-            return View();
+            return this.View();
         }
 
+        /// <summary>
+        /// 配置页面.
+        /// </summary>
+        /// <returns>配置页面视图.</returns>
         public IActionResult Config()
         {
-            var config = _configService.GetCurrentConfig();
-            return View(config);
+            var config = this.configService.GetCurrentConfig();
+            return this.View(config);
         }
 
+        /// <summary>
+        /// 错误页面.
+        /// </summary>
+        /// <returns>错误页面视图.</returns>
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            return this.View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? this.HttpContext.TraceIdentifier });
+        }
+
+        /// <summary>
+        /// 错误统计页面.
+        /// </summary>
+        /// <returns>错误统计页面视图.</returns>
+        public IActionResult ErrorStats()
+        {
+            return this.View();
         }
     }
 }

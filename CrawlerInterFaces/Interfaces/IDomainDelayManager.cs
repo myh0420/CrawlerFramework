@@ -1,5 +1,5 @@
-
 // CrawlerInterFaces/Interfaces/IDomainDelayManager.cs
+
 using System;
 using System.Threading.Tasks;
 
@@ -49,5 +49,26 @@ namespace CrawlerInterFaces.Interfaces
         /// 动态减少域名延迟（恢复）
         /// </summary>
         void DecreaseDelay(string domain);
+        
+        /// <summary>
+        /// 设置域名的最大并发数
+        /// </summary>
+        void SetMaxConcurrency(string domain, int maxConcurrency);
+        
+        /// <summary>
+        /// 尝试获取域名的并发许可
+        /// </summary>
+        /// <returns>是否获取到许可</returns>
+        Task<bool> TryAcquireConcurrencyPermitAsync(string domain);
+        
+        /// <summary>
+        /// 释放域名的并发许可
+        /// </summary>
+        void ReleaseConcurrencyPermit(string domain);
+        
+        /// <summary>
+        /// 获取域名当前的并发数
+        /// </summary>
+        int GetCurrentConcurrency(string domain);
     }
 }

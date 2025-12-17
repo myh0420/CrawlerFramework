@@ -21,15 +21,17 @@ namespace CrawlerInterFaces.Interfaces
         /// </summary>
         /// <param name="htmlContent">HTML内容</param>
         /// <param name="prompt">提取提示</param>
+        /// <param name="url">网页URL（可选）</param>
         /// <returns>提取的信息</returns>
-        Task<string> ExtractWithPromptAsync(string htmlContent, string prompt);
+        Task<string> ExtractWithPromptAsync(string htmlContent, string prompt, string url = "");
 
         /// <summary>
         /// 异步分析网页结构
         /// </summary>
         /// <param name="htmlContent">HTML内容</param>
+        /// <param name="url">网页URL（可选）</param>
         /// <returns>网页结构分析结果</returns>
-        Task<string> AnalyzeStructureAsync(string htmlContent);
+        Task<string> AnalyzeStructureAsync(string htmlContent, string url = "");
 
         /// <summary>
         /// 检查AI服务是否可用

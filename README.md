@@ -451,9 +451,135 @@ Console.WriteLine($"Total URLs: {statistics.TotalUrlsProcessed}");
 Console.WriteLine($"Success Rate: {(double)statistics.SuccessCount / statistics.TotalUrlsProcessed:P2}");
 ```
 
-## 5. 存储和数据处理
+## 5. API参考文档
 
-### 5.1 文件系统存储
+### 5.1 CrawlerEngine - 核心爬虫引擎
+
+CrawlerEngine是整个爬虫框架的核心组件，负责协调和管理爬取任务的执行流程。
+
+#### 构造函数
+```csharp
+public CrawlerEngine(
+    IScheduler scheduler,
+    IDownloader downloader,
+    IParser parser,
+    IStorageProvider storage,
+    ILogger<CrawlerEngine> logger,
+    IMetadataStore? metadataStore = null,
+    AntiBotDetectionService? antiBotService = null,
+    AdaptiveRetryStrategy? retryStrategy = null,
+    RobotsTxtParser? robotsTxtParser = null,
+    CrawlerMetrics? metrics = null,
+    IPluginLoader? pluginLoader = null,
+    bool enableAutoStop = true,
+    TimeSpan? autoStopTimeout = null)
+```
+
+**参数说明：**
+- `scheduler`: 任务调度器，负责管理爬取请求队列和优先级
+- `downloader`: 下载器，负责从网络获取网页内容
+- `parser`: 解析器，负责解析下载的内容并提取信息
+- `storage`: 存储提供器，负责存储爬取结果和元数据
+- `logger`: 日志记录器，用于记录运行时信息和错误
+- `metadataStore`: 元数据存储，用于存储爬取任务的元数据（可选）
+- `antiBotService`: 反机器人服务，用于检测和应对反爬机制（可选）
+- `retryStrategy`: 重试策略，用于处理下载失败的情况（可选）
+- `robotsTxtParser`: Robots.txt解析器，用于遵守网站的爬取规则（可选）
+- `metrics`: 指标服务，用于收集和报告爬取性能数据（可选）
+- `pluginLoader`: 插件加载器，用于加载和管理爬虫插件（可选）
+- `enableAutoStop`: 是否启用自动停止功能，当任务队列为空时自动停止（默认：true）
+- `autoStopTimeout`: 自动停止超时时间，当任务队列为空超过此时间时自动停止（默认：30秒）
+
+#### 核心方法
+
+**启动爬虫**
+```csharp
+// 使用并发任务数启动
+public Task StartAsync(int workerCount = 5, string? jobId = null)
+
+// 使用高级配置启动
+public Task StartAsync(AdvancedCrawlConfiguration config, string? jobId = null)
+```
+
+**停止爬虫**
+```csharp
+public Task StopAsync(bool saveState = true)
+```
+
+**暂停和恢复爬虫**
+```csharp
+public Task PauseAsync()
+public Task ResumeAsync()
+```
+
+**添加种子URL**
+```csharp
+public Task AddSeedUrlsAsync(IEnumerable<string> urls)
+```
+
+**获取统计信息**
+```csharp
+public Task<Dictionary<string, object>> GetStatisticsAsync()
+public Task<CrawlState> GetCurrentCrawlStateAsync()
+```
+
+#### 事件
+- `OnCrawlCompleted`: 爬取完成事件
+- `OnCrawlError`: 爬取错误事件
+- `OnUrlDiscovered`: URL发现事件
+- `OnStatusChanged`: 爬虫状态改变事件
+
+### 5.2 PriorityScheduler - 优先级调度器
+
+PriorityScheduler负责管理爬取请求的队列和优先级，并支持域名请求节流功能。
+
+#### 构造函数
+```csharp
+public PriorityScheduler(
+    IUrlFilter urlFilter,
+    IDomainDelayManager delayManager,
+    ILogger<PriorityScheduler> logger)
+```
+
+**参数说明：**
+- `urlFilter`: URL过滤器，用于判断是否允许处理特定URL
+- `delayManager`: 域名延迟管理器，用于控制对同一域名的请求频率
+- `logger`: 日志记录器，用于记录运行时信息和错误
+
+#### 核心方法
+
+**添加URL到队列**
+```csharp
+public Task<bool> AddUrlAsync(CrawlRequest request)
+public Task<int> AddUrlsAsync(IEnumerable<CrawlRequest> requests)
+```
+
+**获取下一个待处理URL**
+```csharp
+public async Task<CrawlRequest?> GetNextAsync()
+```
+
+**记录域名性能数据**
+```csharp
+public void RecordDomainPerformance(string domain, long downloadTimeMs, bool isSuccess)
+```
+
+#### 优先级计算逻辑
+
+PriorityScheduler使用多维度因素计算URL优先级：
+1. **基础优先级**：由请求本身提供的优先级值
+2. **深度调整**：深度越大，优先级越低（每增加1层深度降低10优先级）
+3. **URL模式**：特定内容类型（如文章、PDF）获得更高优先级
+4. **域名重要性**：高优先级域名获得额外15优先级
+5. **域名性能**：
+   - 下载速度越快，优先级越高
+   - 错误率越高，优先级越低
+   - 连续错误的域名进一步降低优先级
+6. **队列等待时间**：避免饥饿，长时间等待的请求优先级会逐渐提高
+
+## 6. 存储和数据处理
+
+### 6.1 文件系统存储
 
 ```csharp
 // 文件系统存储配置
@@ -473,7 +599,7 @@ await fileStorage.BackupAsync("backup.zip");
 await fileStorage.ClearAllAsync();
 ```
 
-### 5.2 SQLite存储
+### 6.2 SQLite存储
 
 ```csharp
 // SQLite存储配置
@@ -489,9 +615,9 @@ await sqliteStorage.BackupAsync("crawler_backup.db");
 var dbStats = await sqliteStorage.GetStatisticsAsync();
 ```
 
-## 6. 自定义扩展
+## 7. 自定义扩展
 
-### 6.1 自定义内容提取器
+### 7.1 自定义内容提取器
 
 ```csharp
 // 自定义提取器示例
@@ -544,7 +670,7 @@ public class ProductExtractor : IContentExtractor
 services.AddSingleton<IContentExtractor, ProductExtractor>();
 ```
 
-### 6.2 高级解析器特性
+### 7.2 高级解析器特性
 
 AdvancedParser支持多种内容类型的解析处理：
 
@@ -577,7 +703,7 @@ string jsonData = parseResult.ExtractedData["json"] as string; // JSON数据
 
 **注**：AI辅助解析功能目前处于计划阶段，尚未实现。
 
-### 6.3 自定义下载器
+### 7.3 自定义下载器
 
 ```csharp
 // 自定义下载器示例
@@ -631,11 +757,11 @@ public class CustomDownloader : IDownloader
 }
 ```
 
-## 7. Web监控界面
+## 8. Web监控界面
 
 **注**：Web监控界面已实现基本功能，包括实时状态监控、爬虫控制和数据可视化。
 
-### 7.1 启动监控服务（已实现）
+### 8.1 启动监控服务（已实现）
 
 ```csharp
 // Program.cs for Web Monitor (已实现)

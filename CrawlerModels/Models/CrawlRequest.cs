@@ -37,6 +37,11 @@ public class CrawlRequest
     /// 爬取方法
     /// </summary>
     public CrawlMethod Method { get; set; } = CrawlMethod.GET;
+    
+    /// <summary>
+    /// 额外请求头
+    /// </summary>
+    public Dictionary<string, string> AdditionalHeaders { get; set; } = [];
 
     /// <summary>
     /// 重试次数
@@ -72,4 +77,9 @@ public class CrawlRequest
     /// 开始处理时间
     /// </summary>
     public DateTime? StartedAt { get; set; }
+    
+    /// <summary>
+    /// 请求ID
+    /// </summary>
+    public string RequestId { get; set; } = Guid.NewGuid().ToString();
 }

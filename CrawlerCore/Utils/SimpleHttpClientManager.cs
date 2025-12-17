@@ -1,31 +1,87 @@
-// CrawlerCore/Utils/SimpleHttpClientManager.cs
-using System;
-using System.Collections.Concurrent;
-using System.Net.Http;
+// <copyright file="SimpleHttpClientManager.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
 
 namespace CrawlerCore.Utils
 {
+    using System;
+    using System.Collections.Concurrent;
+    using System.Net.Http;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     /// <summary>
-    /// 简化的 HttpClient 管理器
+    /// 简化的 HttpClient 管理器，用于管理 HttpClient 实例池，实现高效的资源复用。
     /// </summary>
-    /// <remarks>
-    /// 构造函数
-    /// </remarks>
-    /// <param name="maxClients">最大客户端数量</param>
-    /// <param name="clientFactory">自定义客户端创建工厂函数</param>
-    public class SimpleHttpClientManager(int maxClients = 10, Func<HttpClient>? clientFactory = null) : IDisposable
+    public class SimpleHttpClientManager : IDisposable
     {
+        /// <summary>
+        /// 可用的 HttpClient 实例队列。
+        /// </summary>
         private readonly ConcurrentQueue<HttpClient> _availableClients = [];
+
+        /// <summary>
+        /// 所有创建的 HttpClient 实例集合。
+        /// </summary>
         private readonly ConcurrentBag<HttpClient> _allClients = [];
-        private readonly int _maxClients = maxClients;
+
+        /// <summary>
+        /// 最大客户端数量限制。
+        /// </summary>
+        private readonly int _maxClients;
+
+        /// <summary>
+        /// 已创建的客户端数量。
+        /// </summary>
         private int _createdCount = 0;
+
+        /// <summary>
+        /// 表示管理器是否已被释放。
+        /// </summary>
         private bool _disposed = false;
+
+        /// <summary>
+        /// 用于线程同步的信号量。
+        /// </summary>
         private readonly SemaphoreSlim _semaphore = new(1);
-        private readonly Func<HttpClient> _clientFactory = clientFactory ?? CreateNewClient;
+
+        /// <summary>
+        /// 客户端创建工厂函数。
+        /// </summary>
+        private readonly Func<HttpClient> _clientFactory;
+
+        /// <summary>
+        /// 用于通知客户端可用的信号量。
+        /// </summary>
         private readonly SemaphoreSlim _clientAvailableSemaphore = new(0);
-        private readonly long _createdTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+        /// <summary>
+        /// 管理器创建时间（Unix时间戳，毫秒）。
+        /// </summary>
+        private readonly long _createdTime;
+
+        /// <summary>
+        /// 客户端请求总数。
+        /// </summary>
         private long _totalClientRequests = 0;
+
+        /// <summary>
+        /// 客户端等待总时间（毫秒）。
+        /// </summary>
         private long _waitTimeMs = 0;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SimpleHttpClientManager"/> class.
+        /// 初始化 <see cref="SimpleHttpClientManager"/> 类的新实例。
+        /// </summary>
+        /// <param name="maxClients">最大客户端数量限制，默认值为10。</param>
+        /// <param name="clientFactory">客户端创建工厂函数，用于自定义HttpClient的创建逻辑。</param>
+        public SimpleHttpClientManager(int maxClients = 10, Func<HttpClient>? clientFactory = null)
+        {
+            _maxClients = maxClients;
+            _clientFactory = clientFactory ?? CreateNewClient;
+            _createdTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        }
 
         /// <summary>
         /// 获取一个HttpClient实例，如果没有可用实例且未达到最大数量，则创建新实例；否则等待可用实例。
@@ -36,7 +92,7 @@ namespace CrawlerCore.Utils
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             Interlocked.Increment(ref _totalClientRequests);
-            
+
             // 尝试直接获取可用客户端
             if (_availableClients.TryDequeue(out HttpClient? client))
             {
@@ -44,7 +100,7 @@ namespace CrawlerCore.Utils
             }
 
             var waitStartTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            
+
             // 尝试创建新客户端
             await _semaphore.WaitAsync(cancellationToken);
             try
@@ -90,7 +146,7 @@ namespace CrawlerCore.Utils
 
             ObjectDisposedException.ThrowIf(_disposed, this);
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             // 理论上不会到达这里，但为了编译安全
             throw new InvalidOperationException("No available HttpClient instances");
         }
@@ -105,6 +161,10 @@ namespace CrawlerCore.Utils
             return GetClientAsync().GetAwaiter().GetResult();
         }
 
+        /// <summary>
+        /// 创建一个新的 HttpClient 实例。
+        /// </summary>
+        /// <returns>新创建的 HttpClient 实例。</returns>
         private static HttpClient CreateNewClient()
         {
             return new HttpClient
@@ -114,25 +174,29 @@ namespace CrawlerCore.Utils
                 {
                     { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
                     { "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
-                    { "Accept-Language", "en-US,en;q=0.5" }
-                }
+                    { "Accept-Language", "en-US,en;q=0.5" },
+                },
             };
         }
 
+        /// <summary>
+        /// 将 HttpClient 实例返回到管理器的可用队列中。
+        /// </summary>
+        /// <param name="client">要返回的 HttpClient 实例。</param>
         private void ReturnClient(HttpClient client)
         {
             if (!_disposed)
             {
                 // 重置客户端状态
                 client.DefaultRequestHeaders.Clear();
-                
+
                 // 重新添加基本头信息
                 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
                 client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
                 client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.5");
-                
+
                 _availableClients.Enqueue(client);
-                
+
                 // 触发信号量，通知等待的线程有客户端可用
                 try
                 {
@@ -145,14 +209,25 @@ namespace CrawlerCore.Utils
                 client.Dispose();
             }
         }
-        ~SimpleHttpClientManager() { 
+
+        /// <summary>
+        /// Finalizes an instance of the <see cref="SimpleHttpClientManager"/> class.
+        /// 终结器，确保资源被释放。
+        /// </summary>
+        ~SimpleHttpClientManager()
+        {
             Dispose(false);
         }
-        protected virtual void Dispose(bool disposeing) {
 
+        /// <summary>
+        /// 释放资源。
+        /// </summary>
+        /// <param name="disposing">表示是否释放托管资源。.</param>
+        protected virtual void Dispose(bool disposing)
+        {
             if (!_disposed)
             {
-                if (disposeing)
+                if (disposing)
                 {
                     // 清理所有客户端
                     foreach (var client in _allClients)
@@ -162,7 +237,7 @@ namespace CrawlerCore.Utils
 
                     _availableClients.Clear();
                     _allClients.Clear();
-                    
+
                     // 释放信号量资源
                     _clientAvailableSemaphore.Dispose();
                     _semaphore.Dispose();
@@ -170,45 +245,96 @@ namespace CrawlerCore.Utils
                 _disposed = true;
             }
         }
+
         /// <summary>
-        /// 释放资源并调用GC.SuppressFinalize
+        /// 释放资源并调用 GC.SuppressFinalize。.
         /// </summary>
         public void Dispose()
         {
             Dispose(true);
-            // 关键优化：调用GC.SuppressFinalize来避免不必要的终结器执行
+
+            // 关键优化：调用 GC.SuppressFinalize 来避免不必要的终结器执行
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// 获取当前可用的 HttpClient 实例数量，即已创建但未被使用的实例数。
+        /// </summary>
         public int AvailableCount => _availableClients.Count;
+
+        /// <summary>
+        /// 获取已创建的 HttpClient 实例总数，包括正在使用和可用的实例。
+        /// </summary>
         public int TotalCount => _createdCount;
 
-        public class ManagedHttpClient(HttpClient client, SimpleHttpClientManager manager) : IDisposable
+        /// <summary>
+        /// 受管理的 HttpClient 包装类，用于确保 HttpClient 实例在使用后正确返回到管理器。
+        /// </summary>
+        public class ManagedHttpClient : IDisposable
         {
-            private readonly HttpClient _client = client;
-            private readonly SimpleHttpClientManager _manager = manager;
+            /// <summary>
+            /// 包装的 HttpClient 实例。
+            /// </summary>
+            private readonly HttpClient _client;
+
+            /// <summary>
+            /// 所属的 HttpClient 管理器。
+            /// </summary>
+            private readonly SimpleHttpClientManager _manager;
+
+            /// <summary>
+            /// 表示实例是否已被释放。
+            /// </summary>
             private bool _disposed = false;
 
+            /// <summary>
+            /// Initializes a new instance of the <see cref="ManagedHttpClient"/> class.
+            /// 初始化 <see cref="ManagedHttpClient"/> 类的新实例。
+            /// </summary>
+            /// <param name="client">要包装的 HttpClient 实例。</param>
+            /// <param name="manager">所属的 HttpClient 管理器。</param>
+            public ManagedHttpClient(HttpClient client, SimpleHttpClientManager manager)
+            {
+                _client = client;
+                _manager = manager;
+            }
+
+            /// <summary>
+            /// 获取包装的 HttpClient 实例。
+            /// </summary>
             public HttpClient Client => _client;
 
+            /// <summary>
+            /// Finalizes an instance of the <see cref="ManagedHttpClient"/> class.
+            /// 终结器，确保资源被释放。
+            /// </summary>
             ~ManagedHttpClient() => Dispose(false);
-            protected virtual void Dispose(bool disposeing) {
+
+            /// <summary>
+            /// 释放资源。
+            /// </summary>
+            /// <param name="disposing">表示是否释放托管资源。</param>
+            protected virtual void Dispose(bool disposing)
+            {
                 if (!_disposed)
                 {
-                    if (disposeing)
+                    if (disposing)
                     {
                         _manager.ReturnClient(_client);
                     }
+
                     _disposed = true;
                 }
             }
+
             /// <summary>
-            /// 释放资源并调用GC.SuppressFinalize
+            /// 释放资源并调用 GC.SuppressFinalize。
             /// </summary>
             public void Dispose()
             {
                 Dispose(true);
-                // 关键优化：调用GC.SuppressFinalize来避免不必要的终结器执行
+
+                // 关键优化：调用 GC.SuppressFinalize 来避免不必要的终结器执行
                 GC.SuppressFinalize(this);
             }
         }

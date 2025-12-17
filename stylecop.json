@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+  "settings": {
+    "documentationRules": {
+      "companyName": "Your Company Name",
+      "copyrightText": "Copyright (c) {companyName}. All rights reserved.",
+      "headerDecoration": "/// <copyright file=\"{fileName}\" company=\"{companyName}\">{copyrightText}</copyright>",
+      "xmlHeader": false,
+      "documentationRequiredForAllElements": false
+    },
+    "layoutRules": {
+      "newlineAtEndOfFile": "require",
+      "allowConsecutiveUsings": false
+    },
+    "maintainabilityRules": {
+      "topLevelTypes": [ "class", "interface", "enum", "struct", "delegate" ]
+    },
+    "namingRules": {
+      "allowHungarianNotation": false,
+      "allowCommonHungarianPrefixes": false
+    },
+    "orderingRules": {
+      "systemUsingDirectivesFirst": true,
+      "usingDirectivesPlacement": "outsideNamespace"
+    },
+    "readabilityRules": {
+      "allowBuiltInTypeAliases": true
+    }
+  }
+}

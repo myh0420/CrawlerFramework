@@ -1,79 +1,91 @@
-// CrawlerStorage/FileSystemStorage.cs
+// <copyright file="FileSystemStorage.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
+
+namespace CrawlerStorage;
+
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using CrawlerEntity.Models;
 using CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using System.Security.Cryptography;
-using System.Text;
+using OpenTelemetry.Trace;
 
-namespace CrawlerStorage;
 /// <summary>
-/// 文件系统存储提供程序
+/// 文件系统存储提供程序.
 /// </summary>
 public class FileSystemStorage : IStorageProvider, IMetadataStore
 {
     /// <summary>
-    /// 基础目录
+    /// 基础目录.
     /// </summary>
-    private readonly string _baseDirectory;
+    private readonly string baseDirectory;
+
     /// <summary>
-    /// 内容目录
+    /// 内容目录.
     /// </summary>
-    private readonly string _contentDirectory;
+    private readonly string contentDirectory;
+
     /// <summary>
-    /// 元数据目录
+    /// 元数据目录.
     /// </summary>
-    private readonly string _metadataDirectory;
+    private readonly string metadataDirectory;
+
     /// <summary>
-    /// 日志记录器
+    /// 日志记录器.
     /// </summary>
-    private readonly ILogger<FileSystemStorage> _logger;
+    private readonly ILogger<FileSystemStorage> logger;
+
     /// <summary>
-    /// JSON序列化设置
+    /// JSON序列化设置.
     /// </summary>
-    private readonly JsonSerializerSettings _jsonSettings;
+    private readonly JsonSerializerSettings jsonSettings;
+
     /// <summary>
-    /// 初始化文件系统存储提供程序
+    /// Initializes a new instance of the <see cref="FileSystemStorage"/> class.
+    /// 初始化文件系统存储提供程序.
     /// </summary>
-    /// <param name="baseDirectory">基础目录</param>
-    /// <param name="logger">日志记录器</param>
+    /// <param name="baseDirectory">基础目录.</param>
+    /// <param name="logger">日志记录器.</param>
     public FileSystemStorage(string? baseDirectory, ILogger<FileSystemStorage>? logger)
     {
-        _baseDirectory = baseDirectory ?? "crawler_data";
-        _contentDirectory = Path.Combine(_baseDirectory, "content");
-        _metadataDirectory = Path.Combine(_baseDirectory, "metadata");
-        _logger = logger ?? new Logger<FileSystemStorage>(new LoggerFactory());
-        
-        _jsonSettings = new JsonSerializerSettings
+        this.baseDirectory = baseDirectory ?? "crawler_data";
+        this.contentDirectory = Path.Combine(this.baseDirectory, "content");
+        this.metadataDirectory = Path.Combine(this.baseDirectory, "metadata");
+        this.logger = logger ?? new Logger<FileSystemStorage>(new LoggerFactory());
+
+        this.jsonSettings = new JsonSerializerSettings
         {
             Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Ignore
+            NullValueHandling = NullValueHandling.Ignore,
         };
 
-        EnsureDirectories();
+        this.EnsureDirectories();
     }
+
     /// <summary>
-    /// 确保目录存在
+    /// 保存爬取结果.
     /// </summary>
-    private void EnsureDirectories()
-    {
-        Directory.CreateDirectory(_contentDirectory);
-        Directory.CreateDirectory(_metadataDirectory);
-        Directory.CreateDirectory(Path.Combine(_metadataDirectory, "crawl_states"));
-        Directory.CreateDirectory(Path.Combine(_metadataDirectory, "url_states"));
-    }
-    /// <summary>
-    /// 保存爬取结果
-    /// </summary>
-    /// <param name="result">爬取结果</param>
-    /// <returns>任务</returns>
+    /// <param name="result">爬取结果.</param>
+    /// <returns>任务.</returns>
     public async Task SaveAsync(CrawlResult result)
     {
+        var stopwatch = Stopwatch.StartNew();
+
+        // 创建OpenTelemetry追踪
+        var tracer = TracerProvider.Default.GetTracer("CrawlerStorage");
+        using var span = tracer.StartActiveSpan("SaveAsync", SpanKind.Internal);
+        span.SetAttribute("url", result.Request.Url);
+        span.SetAttribute("request_id", result.Request.RequestId ?? "unknown");
+        span.SetAttribute("storage.type", "file_system");
+
         try
         {
             // 保存内容
-            var contentPath = GetContentFilePath(result.Request.Url);
-            await SaveContentAsync(contentPath, result);
+            var contentPath = this.GetContentFilePath(result.Request.Url);
+            await this.SaveContentAsync(contentPath, result);
 
             // 保存元数据
             var urlState = new UrlState
@@ -84,83 +96,40 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
                 StatusCode = result.DownloadResult.StatusCode,
                 ContentLength = result.DownloadResult.RawData?.Length ?? 0,
                 ContentType = result.DownloadResult.ContentType,
-                DownloadTime = TimeSpan.FromMilliseconds(result.DownloadResult.DownloadTimeMs)
+                DownloadTime = TimeSpan.FromMilliseconds(result.DownloadResult.DownloadTimeMs),
             };
 
-            await SaveUrlStateAsync(urlState);
+            await this.SaveUrlStateAsync(urlState);
 
-            _logger.LogDebug("Saved content for {Url}", result.Request.Url);
+            this.logger.LogDebug("Saved content for {Url}", result.Request.Url);
+            span.SetAttribute("success", true);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save content for {Url}", result.Request.Url);
+            this.logger.LogError(ex, "Failed to save content for {Url}", result.Request.Url);
+            span.SetAttribute("error", true);
+            span.SetAttribute("error.message", ex.Message);
+            span.SetAttribute("error.type", ex.GetType().Name);
+            span.RecordException(ex);
             throw;
         }
-    }
-    /// <summary>
-    /// 保存爬取内容
-    /// </summary>
-    /// <param name="filePath">文件路径</param>
-    /// <param name="result">爬取结果</param>
-    /// <returns>任务</returns>
-    private async Task SaveContentAsync(string filePath, CrawlResult result)
-    {
-        var contentInfo = new
+        finally
         {
-            result.Request.Url,
-            DownloadedAt = result.ProcessedAt,
-            Metadata = new
-            {
-                result.DownloadResult.StatusCode,
-                result.DownloadResult.ContentType,
-                result.DownloadResult.DownloadTimeMs,
-                ContentLength = result.DownloadResult.RawData?.Length ?? 0,
-                LinksFound = result.ParseResult?.Links?.Count ?? 0
-            },
-            Content = new
-            {
-                Html = result.DownloadResult.Content,
-                RawData = result.DownloadResult.RawData != null ? 
-                    Convert.ToBase64String(result.DownloadResult.RawData) : null,
-                result.ParseResult?.ExtractedData,
-                result.ParseResult?.Links
-            }
-        };
+            stopwatch.Stop();
+            span.SetAttribute("duration_ms", stopwatch.Elapsed.TotalMilliseconds);
+        }
+    }
 
-        var json = JsonConvert.SerializeObject(contentInfo, _jsonSettings);
-        await File.WriteAllTextAsync(filePath, json);
-    }
     /// <summary>
-    /// 获取内容文件路径
+    /// 获取指定域名的爬取结果.
     /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>文件路径</returns>
-    private string GetContentFilePath(string url)
-    {
-        var uri = new Uri(url);
-        var host = uri.Host.Replace('.', '_');
-        var path = uri.AbsolutePath.Replace('/', '_').Trim('_');
-        
-        if (string.IsNullOrEmpty(path))
-            path = "index";
-        
-        // 限制文件名长度
-        if (path.Length > 100)
-            path = path[..100];
-        
-        var fileName = $"{host}_{path}_{Guid.NewGuid():N}.json";
-        return Path.Combine(_contentDirectory, fileName);
-    }
-    /// <summary>
-    /// 获取指定域名的爬取结果
-    /// </summary>
-    /// <param name="domain">域名</param>
-    /// <param name="limit">最大返回数量</param>
-    /// <returns>爬取结果列表</returns>
+    /// <param name="domain">域名.</param>
+    /// <param name="limit">最大返回数量.</param>
+    /// <returns>爬取结果列表.</returns>
     public async Task<IEnumerable<CrawlResult>> GetByDomainAsync(string domain, int limit = 100)
     {
         var results = new List<CrawlResult>();
-        var files = Directory.GetFiles(_contentDirectory, $"*{domain}*", SearchOption.AllDirectories)
+        var files = Directory.GetFiles(this.contentDirectory, $"*{domain}*", SearchOption.AllDirectories)
                            .Take(limit);
 
         foreach (var file in files)
@@ -168,100 +137,69 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             try
             {
                 var content = await File.ReadAllTextAsync(file);
-                var result = DeserializeCrawlResult(content);
+                var result = this.DeserializeCrawlResult(content);
                 if (result != null)
+                {
                     results.Add(result);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to read content file {File}", file);
+                this.logger.LogWarning(ex, "Failed to read content file {File}", file);
             }
         }
 
         return results;
     }
+
     /// <summary>
-    /// 获取指定URL的爬取结果
+    /// 获取指定URL的爬取结果.
     /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>爬取结果</returns>
+    /// <param name="url">URL.</param>
+    /// <returns>爬取结果.</returns>
     public async Task<CrawlResult?> GetByUrlAsync(string url)
     {
-        var files = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
-        
+        var files = Directory.GetFiles(this.contentDirectory, "*.json", SearchOption.AllDirectories);
+
         foreach (var file in files)
         {
             try
             {
                 var content = await File.ReadAllTextAsync(file);
-                var result = DeserializeCrawlResult(content);
+                var result = this.DeserializeCrawlResult(content);
                 if (result?.Request?.Url == url)
+                {
                     return result;
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to read content file {File}", file);
+                this.logger.LogWarning(ex, "Failed to read content file {File}", file);
             }
         }
 
         return null;
     }
-    /// <summary>
-    /// 反序列化爬取结果
-    /// </summary>
-    /// <param name="json">JSON字符串</param>
-    /// <returns>爬取结果</returns>
-    private CrawlResult? DeserializeCrawlResult(string json)
-    {
-        try
-        {
-            var contentInfo = JsonConvert.DeserializeObject<dynamic>(json);
-            if (contentInfo == null) return null;
 
-            return new CrawlResult
-            {
-                Request = new CrawlRequest { Url = contentInfo.Url },
-                ProcessedAt = contentInfo.DownloadedAt,
-                DownloadResult = new DownloadResult
-                {
-                    Url = contentInfo.Url,
-                    Content = contentInfo?.Content?.Html ?? string.Empty,
-                    ContentType = contentInfo?.Metadata?.ContentType ?? string.Empty,
-                    StatusCode = contentInfo?.Metadata?.StatusCode,
-                    DownloadTimeMs = contentInfo?.Metadata?.DownloadTimeMs
-                },
-                ParseResult = new ParseResult
-                {
-                    Links = contentInfo?.Content?.Links?.ToObject<List<string>>() ?? new List<string>(),
-                    ExtractedData = contentInfo?.Content?.ExtractedData?.ToObject<Dictionary<string, object>>() 
-                        ?? new Dictionary<string, object>()
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to deserialize crawl result");
-            return null;
-        }
-    }
     /// <summary>
-    /// 获取总记录数
+    /// 获取总记录数.
     /// </summary>
-    /// <returns>记录数</returns>
+    /// <returns>记录数.</returns>
     public async Task<long> GetTotalCountAsync()
     {
-        var files = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
+        var files = Directory.GetFiles(this.contentDirectory, "*.json", SearchOption.AllDirectories);
         return await Task.FromResult(files.LongLength);
     }
+
     /// <summary>
-    /// 删除指定URL的爬取结果
+    /// 删除指定URL的爬取结果.
     /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>是否删除成功</returns>
+    /// <param name="url">URL.</param>
+    /// <returns>是否删除成功.</returns>
     public async Task<bool> DeleteAsync(string url)
     {
-        var files = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
-        
+        var files = Directory.GetFiles(this.contentDirectory, "*.json", SearchOption.AllDirectories);
+
         foreach (var file in files)
         {
             try
@@ -271,112 +209,163 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
                 if (contentInfo?.Url == url)
                 {
                     File.Delete(file);
-                    
+
                     // 同时删除URL状态
-                    var urlStateFile = GetUrlStateFilePath(url);
+                    var urlStateFile = this.GetUrlStateFilePath(url);
                     if (File.Exists(urlStateFile))
+                    {
                         File.Delete(urlStateFile);
-                    
+                    }
+
                     return true;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to delete content for {Url}", url);
+                this.logger.LogWarning(ex, "Failed to delete content for {Url}", url);
             }
         }
 
         return false;
     }
+
     /// <summary>
-    /// 保存爬取状态
+    /// 批量保存爬取结果.
     /// </summary>
-    /// <param name="state">爬取状态</param>
-    /// <returns>任务</returns>
+    /// <param name="results">爬取结果列表.</param>
+    /// <returns>任务.</returns>
+    public async Task BatchSaveAsync(List<CrawlResult> results)
+    {
+        try
+        {
+            if (results == null || results.Count == 0)
+            {
+                return;
+            }
+
+            // 使用Parallel.ForEach来并行保存多个结果，提高性能
+            await Task.Run(() =>
+            {
+                Parallel.ForEach(results, new ParallelOptions { MaxDegreeOfParallelism = 4 }, result =>
+                {
+                    var contentPath = this.GetContentFilePath(result.Request.Url);
+                    this.SaveContentAsync(contentPath, result).Wait();
+
+                    // 保存元数据
+                    var urlState = new UrlState
+                    {
+                        Url = result.Request.Url,
+                        DiscoveredAt = DateTime.UtcNow.AddMinutes(-5), // 假设5分钟前发现
+                        ProcessedAt = result.ProcessedAt,
+                        StatusCode = result.DownloadResult.StatusCode,
+                        ContentLength = result.DownloadResult.RawData?.Length ?? 0,
+                        ContentType = result.DownloadResult.ContentType,
+                        DownloadTime = TimeSpan.FromMilliseconds(result.DownloadResult.DownloadTimeMs),
+                    };
+
+                    this.SaveUrlStateAsync(urlState).Wait();
+                });
+            });
+
+            this.logger.LogDebug("Batch saved {Count} crawl results", results.Count);
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to batch save crawl results");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 保存爬取状态.
+    /// </summary>
+    /// <param name="state">爬取状态.</param>
+    /// <returns>任务.</returns>
     public async Task SaveCrawlStateAsync(CrawlState state)
     {
-        var filePath = Path.Combine(_metadataDirectory, "crawl_states", $"{state.JobId}.json");
-        var json = JsonConvert.SerializeObject(state, _jsonSettings);
+        var filePath = Path.Combine(this.metadataDirectory, "crawl_states", $"{state.JobId}.json");
+        var json = JsonConvert.SerializeObject(state, this.jsonSettings);
         await File.WriteAllTextAsync(filePath, json);
     }
+
     /// <summary>
-    /// 获取指定JobID的爬取状态
+    /// 获取指定JobID的爬取状态.
     /// </summary>
-    /// <param name="jobId">JobID</param>
-    /// <returns>爬取状态</returns>
+    /// <param name="jobId">JobID.</param>
+    /// <returns>爬取状态.</returns>
     public async Task<CrawlState?> GetCrawlStateAsync(string? jobId)
     {
-        var filePath = Path.Combine(_metadataDirectory, "crawl_states", $"{jobId}.json");
-        if (!File.Exists(filePath)) return null;
+        var filePath = Path.Combine(this.metadataDirectory, "crawl_states", $"{jobId}.json");
+        if (!File.Exists(filePath))
+        {
+            return null;
+        }
 
         var json = await File.ReadAllTextAsync(filePath);
         return JsonConvert.DeserializeObject<CrawlState>(json);
     }
+
     /// <summary>
-    /// 保存URL状态
+    /// 保存URL状态.
     /// </summary>
-    /// <param name="state">URL状态</param>
-    /// <returns>任务</returns>
+    /// <param name="state">URL状态.</param>
+    /// <returns>任务.</returns>
     public async Task SaveUrlStateAsync(UrlState state)
     {
-        var filePath = GetUrlStateFilePath(state.Url);
-        var json = JsonConvert.SerializeObject(state, _jsonSettings);
+        var filePath = this.GetUrlStateFilePath(state.Url);
+        var json = JsonConvert.SerializeObject(state, this.jsonSettings);
         await File.WriteAllTextAsync(filePath, json);
     }
+
     /// <summary>
-    /// 获取指定URL的URL状态
+    /// 获取指定URL的URL状态.
     /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>URL状态</returns>
+    /// <param name="url">URL.</param>
+    /// <returns>URL状态.</returns>
     public async Task<UrlState?> GetUrlStateAsync(string url)
     {
-        var filePath = GetUrlStateFilePath(url);
-        if (!File.Exists(filePath)) return null;
+        var filePath = this.GetUrlStateFilePath(url);
+        if (!File.Exists(filePath))
+        {
+            return null;
+        }
 
         var json = await File.ReadAllTextAsync(filePath);
         return JsonConvert.DeserializeObject<UrlState>(json);
     }
+
     /// <summary>
-    /// 获取URL状态文件路径
+    /// 初始化文件系统存储.
     /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>文件路径</returns>
-    private string GetUrlStateFilePath(string url)
-    {
-        var urlHash = Convert.ToHexStringLower(MD5.HashData(Encoding.UTF8.GetBytes(url)));
-        return Path.Combine(_metadataDirectory, "url_states", $"{urlHash}.json");
-    }
-    /// <summary>
-    /// 初始化文件系统存储
-    /// </summary>
-    /// <returns>任务</returns>
+    /// <returns>任务.</returns>
     public Task InitializeAsync()
     {
-        _logger.LogInformation("File system storage initialized at {BaseDirectory}", _baseDirectory);
-        return Task.CompletedTask;
-    }
-    /// <summary>
-    /// 关闭文件系统存储
-    /// </summary>
-    /// <returns>任务</returns>
-    public Task ShutdownAsync()
-    {
-        _logger.LogInformation("File system storage shutdown");
+        this.logger.LogInformation("File system storage initialized at {BaseDirectory}", this.baseDirectory);
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 获取统计信息
+    /// 关闭文件系统存储.
     /// </summary>
-    /// <returns>统计信息</returns>
+    /// <returns>任务.</returns>
+    public Task ShutdownAsync()
+    {
+        this.logger.LogInformation("File system storage shutdown");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 获取统计信息.
+    /// </summary>
+    /// <returns>统计信息.</returns>
     public async Task<CrawlStatistics> GetStatisticsAsync()
     {
         var stats = new CrawlStatistics();
 
         try
         {
-            var contentFiles = Directory.GetFiles(_contentDirectory, "*.json", SearchOption.AllDirectories);
-            var urlStateFiles = Directory.GetFiles(Path.Combine(_metadataDirectory, "url_states"), "*.json", SearchOption.AllDirectories);
+            var contentFiles = Directory.GetFiles(this.contentDirectory, "*.json", SearchOption.AllDirectories);
+            var urlStateFiles = Directory.GetFiles(Path.Combine(this.metadataDirectory, "url_states"), "*.json", SearchOption.AllDirectories);
 
             stats.TotalUrlsProcessed = contentFiles.Length;
             stats.TotalUrlsDiscovered = urlStateFiles.Length;
@@ -402,9 +391,13 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
                         bool isSuccess = statusCode >= 200 && statusCode < 400;
 
                         if (isSuccess)
+                        {
                             successCount++;
+                        }
                         else
+                        {
                             errorCount++;
+                        }
 
                         // 累计下载大小和时间
                         long contentLength = contentInfo.Metadata.ContentLength ?? 0;
@@ -428,19 +421,23 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
 
                                 domainStat.UrlsProcessed++;
                                 domainStat.TotalDownloadSize += contentLength;
-                                domainStat.AverageDownloadTimeMs = (domainStat.AverageDownloadTimeMs * (domainStat.UrlsProcessed - 1) + downloadTime) / domainStat.UrlsProcessed;
+                                domainStat.AverageDownloadTimeMs = ((domainStat.AverageDownloadTimeMs * (domainStat.UrlsProcessed - 1)) + downloadTime) / domainStat.UrlsProcessed;
 
                                 if (isSuccess)
+                                {
                                     domainStat.SuccessCount++;
+                                }
                                 else
+                                {
                                     domainStat.ErrorCount++;
+                                }
                             }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to analyze content file: {File}", file);
+                    this.logger.LogWarning(ex, "Failed to analyze content file: {File}", file);
                 }
             }
 
@@ -452,58 +449,267 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             stats.DomainStats = domainStats;
             stats.LastUpdateTime = DateTime.UtcNow;
 
-            _logger.LogInformation("Generated statistics: {TotalUrls} URLs, {SuccessCount} successes, {ErrorCount} errors",
-                stats.TotalUrlsProcessed, stats.SuccessCount, stats.ErrorCount);
+            this.logger.LogInformation(
+                "Generated statistics: {TotalUrls} URLs, {SuccessCount} successes, {ErrorCount} errors, " +
+                "{TotalDownloadSize} bytes downloaded, {AverageDownloadTimeMs} ms average download time",
+                stats.TotalUrlsProcessed,
+                stats.SuccessCount,
+                stats.ErrorCount,
+                stats.TotalDownloadSize,
+                stats.AverageDownloadTimeMs);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate statistics");
+            this.logger.LogError(ex, "Failed to generate statistics");
         }
 
         return stats;
     }
 
     /// <summary>
-    /// 清空所有数据
+    /// 清空所有数据.
     /// </summary>
-    /// <returns>任务</returns>
+    /// <returns>任务.</returns>
     public async Task ClearAllAsync()
     {
         try
         {
             // 删除所有子目录和文件
-            var directories = new[] { _contentDirectory, _metadataDirectory };
+            var directories = new[] { this.contentDirectory, this.metadataDirectory };
 
             foreach (var directory in directories)
             {
                 if (Directory.Exists(directory))
                 {
-                    await DeleteDirectoryRecursiveAsync(directory);
-                    _logger.LogInformation("Cleared directory: {Directory}", directory);
+                    await this.DeleteDirectoryRecursiveAsync(directory);
+                    this.logger.LogInformation("Cleared directory: {Directory}", directory);
                 }
             }
 
             // 重新创建目录结构
-            EnsureDirectories();
+            this.EnsureDirectories();
 
-            _logger.LogInformation("All data cleared successfully");
+            this.logger.LogInformation("All data cleared successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to clear all data");
+            this.logger.LogError(ex, "Failed to clear all data");
             throw;
         }
     }
 
     /// <summary>
-    /// 递归删除目录
+    /// 备份数据.
     /// </summary>
-    /// <param name="directoryPath">目录路径</param>
-    /// <returns>任务</returns>
+    /// <param name="backupPath">备份路径.</param>
+    /// <returns>任务.</returns>
+    public async Task BackupAsync(string backupPath)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(backupPath))
+            {
+                throw new ArgumentException("Backup path cannot be null or empty", nameof(backupPath));
+            }
+
+            // 确保备份目录存在
+            var backupDir = Path.GetDirectoryName(backupPath);
+            if (!string.IsNullOrEmpty(backupDir) && !Directory.Exists(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+
+            // 如果备份路径是文件，则创建zip备份
+            if (Path.HasExtension(backupPath))
+            {
+                await this.CreateZipBackupAsync(backupPath);
+            }
+            else
+            {
+                // 如果是目录，则复制整个目录结构
+                await this.CopyDirectoryAsync(this.baseDirectory, backupPath);
+            }
+
+            this.logger.LogInformation("Backup created successfully: {BackupPath}", backupPath);
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to create backup: {BackupPath}", backupPath);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 从URL中提取域名.
+    /// </summary>
+    /// <param name="url">URL.</param>
+    /// <returns>域名.</returns>
+    private static string? GetDomainFromUrl(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            return uri.Host;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 从URL中提取路径.
+    /// </summary>
+    /// <param name="url">URL.</param>
+    /// <returns>路径.</returns>
+    private static string? GetPathFromUrl(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            return uri.AbsolutePath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 保存爬取内容到文件系统.
+    /// </summary>
+    /// <param name="filePath">文件路径.</param>
+    /// <param name="result">爬取结果.</param>
+    /// <returns>任务.</returns>
+    private async Task SaveContentAsync(string filePath, CrawlResult result)
+    {
+        var contentInfo = new
+        {
+            result.Request.Url,
+            DownloadedAt = result.ProcessedAt,
+            Metadata = new
+            {
+                result.DownloadResult.StatusCode,
+                result.DownloadResult.ContentType,
+                result.DownloadResult.DownloadTimeMs,
+                ContentLength = result.DownloadResult.RawData?.Length ?? 0,
+                LinksFound = result.ParseResult?.Links?.Count ?? 0,
+            },
+            Content = new
+            {
+                Html = result.DownloadResult.Content,
+                RawData = result.DownloadResult.RawData != null ?
+                    Convert.ToBase64String(result.DownloadResult.RawData) : null,
+                result.ParseResult?.ExtractedData,
+                result.ParseResult?.Links,
+            },
+        };
+
+        var json = JsonConvert.SerializeObject(contentInfo, this.jsonSettings);
+        await File.WriteAllTextAsync(filePath, json);
+    }
+
+    /// <summary>
+    /// 获取内容文件路径.
+    /// </summary>
+    /// <param name="url">URL.</param>
+    /// <returns>文件路径.</returns>
+    private string GetContentFilePath(string url)
+    {
+        var uri = new Uri(url);
+        var host = uri.Host.Replace('.', '_');
+        var path = uri.AbsolutePath.Replace('/', '_').Trim('_');
+
+        if (string.IsNullOrEmpty(path))
+        {
+            path = "index";
+        }
+
+        // 限制文件名长度
+        if (path.Length > 100)
+        {
+            path = path[..100];
+        }
+
+        var fileName = $"{host}_{path}_{Guid.NewGuid():N}.json";
+        return Path.Combine(this.contentDirectory, fileName);
+    }
+
+    /// <summary>
+    /// 确保目录存在.
+    /// </summary>
+    private void EnsureDirectories()
+    {
+        Directory.CreateDirectory(this.contentDirectory);
+        Directory.CreateDirectory(this.metadataDirectory);
+        Directory.CreateDirectory(Path.Combine(this.metadataDirectory, "crawl_states"));
+        Directory.CreateDirectory(Path.Combine(this.metadataDirectory, "url_states"));
+    }
+
+    /// <summary>
+    /// 反序列化爬取结果.
+    /// </summary>
+    /// <param name="json">JSON字符串.</param>
+    /// <returns>爬取结果.</returns>
+    private CrawlResult? DeserializeCrawlResult(string json)
+    {
+        try
+        {
+            var contentInfo = JsonConvert.DeserializeObject<dynamic>(json);
+            if (contentInfo == null)
+            {
+                return null;
+            }
+
+            return new CrawlResult
+            {
+                Request = new CrawlRequest { Url = contentInfo.Url },
+                ProcessedAt = contentInfo.DownloadedAt,
+                DownloadResult = new DownloadResult
+                {
+                    Url = contentInfo.Url,
+                    Content = contentInfo?.Content?.Html ?? string.Empty,
+                    ContentType = contentInfo?.Metadata?.ContentType ?? string.Empty,
+                    StatusCode = contentInfo?.Metadata?.StatusCode,
+                    DownloadTimeMs = contentInfo?.Metadata?.DownloadTimeMs,
+                },
+                ParseResult = new ParseResult
+                {
+                    Links = contentInfo?.Content?.Links?.ToObject<List<string>>() ?? new List<string>(),
+                    ExtractedData = contentInfo?.Content?.ExtractedData?.ToObject<Dictionary<string, object>>()
+                        ?? new Dictionary<string, object>(),
+                },
+            };
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to deserialize crawl result");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 获取URL状态文件路径.
+    /// </summary>
+    /// <param name="url">URL.</param>
+    /// <returns>文件路径.</returns>
+    private string GetUrlStateFilePath(string url)
+    {
+        var urlHash = Convert.ToHexStringLower(MD5.HashData(Encoding.UTF8.GetBytes(url)));
+        return Path.Combine(this.metadataDirectory, "url_states", $"{urlHash}.json");
+    }
+
+    /// <summary>
+    /// 递归删除目录.
+    /// </summary>
+    /// <param name="directoryPath">目录路径.</param>
+    /// <returns>任务.</returns>
     private async Task DeleteDirectoryRecursiveAsync(string directoryPath)
     {
         if (!Directory.Exists(directoryPath))
+        {
             return;
+        }
 
         // 先删除所有文件
         var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories);
@@ -516,7 +722,7 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to delete file: {File}", file);
+                this.logger.LogWarning(ex, "Failed to delete file: {File}", file);
             }
         }
 
@@ -533,7 +739,7 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to delete directory: {Directory}", dir);
+                this.logger.LogWarning(ex, "Failed to delete directory: {Directory}", dir);
             }
         }
 
@@ -544,60 +750,20 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to delete root directory: {Directory}", directoryPath);
+            this.logger.LogWarning(ex, "Failed to delete root directory: {Directory}", directoryPath);
         }
     }
 
     /// <summary>
-    /// 备份数据
+    /// 创建ZIP备份.
     /// </summary>
-    /// <param name="backupPath">备份路径</param>
-    /// <returns>任务</returns>
-    public async Task BackupAsync(string backupPath)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(backupPath))
-                throw new ArgumentException("Backup path cannot be null or empty", nameof(backupPath));
-
-            // 确保备份目录存在
-            var backupDir = Path.GetDirectoryName(backupPath);
-            if (!string.IsNullOrEmpty(backupDir) && !Directory.Exists(backupDir))
-            {
-                Directory.CreateDirectory(backupDir);
-            }
-
-            // 如果备份路径是文件，则创建zip备份
-            if (Path.HasExtension(backupPath))
-            {
-                await CreateZipBackupAsync(backupPath);
-            }
-            else
-            {
-                // 如果是目录，则复制整个目录结构
-                await CopyDirectoryAsync(_baseDirectory, backupPath);
-            }
-
-            _logger.LogInformation("Backup created successfully: {BackupPath}", backupPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create backup: {BackupPath}", backupPath);
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// 创建ZIP备份
-    /// </summary>
-    /// <param name="zipFilePath">ZIP文件路径</param>
-    /// <returns>任务</returns>
+    /// <param name="zipFilePath">ZIP文件路径.</param>
+    /// <returns>任务.</returns>
     private async Task CreateZipBackupAsync(string zipFilePath)
     {
         // 注意：这里需要引用 System.IO.Compression 命名空间
         // 在项目中添加对 System.IO.Compression.FileSystem 的引用（如果使用 .NET Framework）
         // 对于 .NET Core/5+，使用 System.IO.Compression.ZipFile
-
         try
         {
             // 检查是否已存在备份文件，如果存在则删除
@@ -607,28 +773,29 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             }
 
             // 使用 System.IO.Compression.ZipFile 创建压缩包
-            System.IO.Compression.ZipFile.CreateFromDirectory(_baseDirectory, zipFilePath,
-                System.IO.Compression.CompressionLevel.Optimal, false);
+            System.IO.Compression.ZipFile.CreateFromDirectory(this.baseDirectory, zipFilePath, System.IO.Compression.CompressionLevel.Optimal, false);
 
             await Task.CompletedTask;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create ZIP backup: {ZipFilePath}", zipFilePath);
+            this.logger.LogError(ex, "Failed to create ZIP backup: {ZipFilePath}", zipFilePath);
             throw;
         }
     }
 
     /// <summary>
-    /// 复制目录
+    /// 复制目录.
     /// </summary>
-    /// <param name="sourceDir">源目录</param>
-    /// <param name="destinationDir">目标目录</param>
-    /// <returns>任务</returns>
+    /// <param name="sourceDir">源目录.</param>
+    /// <param name="destinationDir">目标目录.</param>
+    /// <returns>任务.</returns>
     private async Task CopyDirectoryAsync(string sourceDir, string destinationDir)
     {
         if (!Directory.Exists(sourceDir))
+        {
             throw new DirectoryNotFoundException($"Source directory not found: {sourceDir}");
+        }
 
         // 创建目标目录
         if (!Directory.Exists(destinationDir))
@@ -656,44 +823,6 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
             await Task.Delay(1);
         }
 
-        _logger.LogDebug("Copied {FileCount} files from {SourceDir} to {DestinationDir}",
-            files.Length, sourceDir, destinationDir);
+        this.logger.LogDebug("Copied {FileCount} files from {SourceDir} to {DestinationDir}", files.Length, sourceDir, destinationDir);
     }
-
-    /// <summary>
-    /// 从URL中提取域名
-    /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>域名</returns>
-    private static string? GetDomainFromUrl(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            return uri.Host;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// 从URL中提取路径
-    /// </summary>
-    /// <param name="url">URL</param>
-    /// <returns>路径</returns>
-    private static string? GetPathFromUrl(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            return uri.AbsolutePath;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-    
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -47,4 +47,14 @@ public class DownloadResult
     /// 是否成功
     /// </summary>
     public bool IsSuccess { get; set; }
+    
+    /// <summary>
+    /// 错误类型
+    /// </summary>
+    public string ErrorType { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// 请求ID
+    /// </summary>
+    public string RequestId { get; set; } = string.Empty;
 }

@@ -60,6 +60,10 @@ public class AdvancedCrawlConfiguration : CrawlConfiguration
     /// JavaScript超时时间（秒）
     /// </summary>
     public int JavascriptTimeoutSeconds { get; set; } = 30;
+    /// <summary>
+    /// 是否包含原始数据（RawData）
+    /// </summary>
+    public bool IncludeRawData { get; set; } = true;
     
     // 数据清洗设置
     /// <summary>

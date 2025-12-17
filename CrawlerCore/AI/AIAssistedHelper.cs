@@ -1,179 +1,263 @@
-// CrawlerCore/AI/AIAssistedHelper.cs
-using CrawlerInterFaces.Interfaces;
-using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
-using System.Text;
-using System.Xml.Linq;
-
+// <copyright file="AIAssistedHelper.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
 namespace CrawlerCore.AI;
 
+using System;
+using System.Collections.Concurrent;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using CrawlerInterFaces.Interfaces;
+using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+
 /// <summary>
-/// AI辅助解析器实现类
+/// AI辅助解析器实现类.
 /// </summary>
-public partial class AIAssistedHelper(ILogger<AIAssistedHelper> logger) : IAIHelper
+public partial class AIAssistedHelper : IAIHelper
 {
-    private readonly ILogger<AIAssistedHelper> _logger = logger;
-    private bool _isInitialized = false;
-    private readonly bool _isAvailable = true;
-    private readonly Dictionary<string, string> _contentPatterns = new()
+    /// <summary>
+    /// 缓存过期时间（毫秒）.
+    /// </summary>
+    private const int CacheExpirationMs = 300000; // 5分钟
+
+    /// <summary>
+    /// 主要内容选择器.
+    /// </summary>
+    private static readonly string[] MainContentSelectors = [
+        "//main",
+        "//article",
+        "//div[contains(@class, 'main') or contains(@class, 'content') or contains(@class, 'article') or contains(@class, 'post')]",
+        "//section[contains(@class, 'main') or contains(@class, 'content') or contains(@class, 'article') or contains(@class, 'post')]"
+    ];
+
+    /// <summary>
+    /// 初始化AI辅助解析器.
+    /// </summary>
+    private readonly ILogger<AIAssistedHelper> logger;
+
+    /// <summary>
+    /// 是否可用.
+    /// </summary>
+    private readonly bool isAvailable = true;
+
+    /// <summary>
+    /// HTML文档缓存.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, CacheItem<HtmlDocument>> htmlDocumentCache = new();
+
+    /// <summary>
+    /// 提取结果缓存.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, CacheItem<string>> extractionResultCache = new();
+
+    /// <summary>
+    /// 是否已初始化.
+    /// </summary>
+    private bool isInitialized;
+
+    /// <summary>
+    /// 初始化 <see cref="AIAssistedHelper"/> 类的新实例.
+    /// </summary>
+    /// <param name="logger">日志记录器实例.</param>
+    public AIAssistedHelper(ILogger<AIAssistedHelper> logger)
     {
-        { "article", "main|article|content|post" },
-        { "title", "h1|h2|title" },
-        { "meta", "meta|description|keywords" },
-        { "navigation", "nav|menu|sidebar|aside" },
-        { "footer", "footer" }
-    };
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+    }
 
-    [GeneratedRegex(@"<(script|style|iframe|noscript|svg)[^>]*>.*?</\1>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
-    private static partial Regex ScriptStyleRegex();
-
-    [GeneratedRegex(@"<[^>]*>")]
-    private static partial Regex HtmlTagRegex();
-
-    [GeneratedRegex(@"\s+\n\s+")]
-    private static partial Regex ExtraNewlineRegex();
-
-    [GeneratedRegex(@"\s{2,}")]
-    private static partial Regex ExtraWhitespaceRegex();
-
-    [GeneratedRegex(@"(\r\n|\r|\n)")]
-    private static partial Regex NewlineRegex();
-
-    [GeneratedRegex(@"(?i)<(h[1-6]|title)[^>]*>(.*?)</\1>")]
-    private static partial Regex TitleTagRegex();
-
-    [GeneratedRegex(@"(?i)<(meta|link)[^>]*>")]
-    private static partial Regex MetaTagRegex();
-
-    [GeneratedRegex(@"(?i)<(main|article|div|section)[^>]*class=[""]?.*?(content|article|post|main).*?[""]?[^>]*>(.*?)</\1>", RegexOptions.Singleline)]
-    private static partial Regex MainContentRegex();
-
-    [GeneratedRegex(@"content=[""'](.*?)[""']")]
-    private static partial Regex ContentRegex();
-
-    [GeneratedRegex(@"(?i)<a[^>]*href=[""'].*?[""'][^>]*>")]
-    private static partial Regex LinkTagRegex();
-
-    [GeneratedRegex(@"(?i)<a[^>]*href=[""'](.*?)[""'][^>]*>(.*?)</a>")]
-    private static partial Regex LinkWithTextRegex();
-
-    [GeneratedRegex(@"(?i)<h([1-6])[^>]*>.*?</h\1>")]
-    private static partial Regex HeadingRegex();
-
+    /// <summary>
+    /// 初始化AI辅助解析器.
+    /// </summary>
+    /// <returns>异步任务.</returns>
     public Task InitializeAsync()
     {
-        if (!_isInitialized)
+        if (!this.isInitialized)
         {
-            _isInitialized = true;
-            _logger.LogInformation("AIAssistedHelper initialized successfully");
-            _logger.LogDebug("Content patterns: {Patterns}", string.Join(", ", _contentPatterns.Select(kv => $"{kv.Key}: {kv.Value}")));
+            this.isInitialized = true;
+            this.logger.LogInformation("AIAssistedHelper initialized successfully");
         }
+
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 关闭AI辅助解析器.
+    /// </summary>
+    /// <returns>异步任务.</returns>
     public Task ShutdownAsync()
     {
-        if (_isInitialized)
+        if (this.isInitialized)
         {
-            _isInitialized = false;
-            _logger.LogInformation("AIAssistedHelper shutdown successfully");
+            this.isInitialized = false;
+            this.logger.LogInformation("AIAssistedHelper shutdown successfully");
         }
+
         return Task.CompletedTask;
     }
 
-    public Task<string> ExtractMainContentAsync(string htmlContent, string url = "")
+    /// <summary>
+    /// 从HTML内容中提取主要内容.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>主要内容文本.</returns>
+    public async Task<string> ExtractMainContentAsync(string htmlContent, string url = "")
     {
         try
         {
             if (string.IsNullOrWhiteSpace(htmlContent))
             {
-                _logger.LogWarning("Empty HTML content provided for extraction");
-                return Task.FromResult(string.Empty);
+                this.logger.LogWarning("Empty HTML content provided for extraction. URL: {Url}", url);
+                return string.Empty;
             }
 
-            _logger.LogDebug("Extracting main content from HTML with length: {Length}", htmlContent.Length);
-
-            // 1. 移除脚本、样式和iframe等不需要的内容
-            var cleanedHtml = ScriptStyleRegex().Replace(htmlContent, string.Empty);
-            
-            // 2. 尝试提取主要内容块
-            var mainContentMatch = MainContentRegex().Match(cleanedHtml);
-            if (mainContentMatch.Success)
+            // 尝试从缓存获取结果
+            var cachedResult = this.GetCachedExtractionResult(htmlContent, "main_content", url);
+            if (cachedResult != null)
             {
-                cleanedHtml = mainContentMatch.Groups[3].Value;
-                _logger.LogDebug("Found main content block, extracting from it");
+                return cachedResult;
             }
 
-            // 3. 移除所有HTML标签
-            var text = HtmlTagRegex().Replace(cleanedHtml, string.Empty);
-            
-            // 4. 清理文本内容
-            text = CleanTextContent(text);
-            
-            // 5. 提取并保留标题
-            var title = ExtractTitle(htmlContent);
-            if (!string.IsNullOrWhiteSpace(title) && !text.StartsWith(title))
+            this.logger.LogDebug("Extracting main content from HTML with length: {Length}. URL: {Url}", htmlContent.Length, url);
+
+            // 使用Task.Run在后台线程执行耗时的HTML处理
+            var text = await Task.Run(() =>
             {
-                text = $"{title}\n\n{text}";
-            }
+                // 获取或创建HTML文档
+                var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
 
-            _logger.LogInformation("Successfully extracted main content with length: {Length}", text.Length);
-            return Task.FromResult(text);
+                // 创建文档副本以避免修改原始缓存文档
+                var docCopy = new HtmlDocument();
+                docCopy.LoadHtml(doc.DocumentNode.OuterHtml);
+
+                // 1. 移除脚本、样式和iframe等不需要的内容
+                RemoveUnnecessaryContent(docCopy);
+
+                // 2. 尝试提取主要内容块
+                string mainContent = string.Empty;
+
+                foreach (var selector in MainContentSelectors)
+                {
+                    var mainContentNode = doc.DocumentNode.SelectSingleNode(selector);
+                    if (mainContentNode != null && !string.IsNullOrWhiteSpace(mainContentNode.InnerText))
+                    {
+                        mainContent = mainContentNode.InnerText;
+                        this.logger.LogDebug("Found main content using selector: {Selector}. URL: {Url}", selector, url);
+                        break;
+                    }
+                }
+
+                // 如果没有找到主要内容块，使用整个文档内容
+                if (string.IsNullOrWhiteSpace(mainContent))
+                {
+                    mainContent = doc.DocumentNode.InnerText;
+                    this.logger.LogDebug("Using entire document content as main content. URL: {Url}", url);
+                }
+
+                // 3. 清理文本内容
+                var cleanedText = CleanTextContent(mainContent);
+
+                // 4. 提取并保留标题
+                var title = this.ExtractTitle(htmlContent, url);
+                if (!string.IsNullOrWhiteSpace(title) && !cleanedText.StartsWith(title))
+                {
+                    cleanedText = $"{title}\n\n{cleanedText}";
+                }
+
+                return cleanedText;
+            });
+
+            // 存入缓存
+            this.CacheExtractionResult(htmlContent, "main_content", text, url);
+
+            this.logger.LogInformation("Successfully extracted main content with length: {Length}. URL: {Url}", text.Length, url);
+            return text;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to extract main content from HTML");
-            return Task.FromResult(string.Empty);
+            this.logger.LogError(ex, "Failed to extract main content from HTML. Content length: {Length}, URL: {Url}", htmlContent?.Length ?? 0, url);
+            return string.Empty;
         }
     }
 
-    public Task<string> ExtractWithPromptAsync(string htmlContent, string prompt)
+    /// <summary>
+    /// 从HTML内容中提取内容根据提示.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="prompt">提取提示.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取的内容文本.</returns>
+    public async Task<string> ExtractWithPromptAsync(string htmlContent, string prompt, string url = "")
     {
         try
         {
             if (string.IsNullOrWhiteSpace(htmlContent))
             {
-                _logger.LogWarning("Empty HTML content provided for prompt extraction");
-                return Task.FromResult(string.Empty);
+                this.logger.LogWarning("Empty HTML content provided for prompt extraction");
+                return string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(prompt))
             {
-                _logger.LogWarning("Empty prompt provided for extraction");
-                return Task.FromResult(string.Empty);
+                this.logger.LogWarning("Empty prompt provided for extraction");
+                return string.Empty;
             }
 
-            _logger.LogInformation("Extracting content with prompt: {Prompt}", prompt);
+            this.logger.LogInformation("Extracting content with prompt: {Prompt}", prompt);
 
-            // 移除脚本和样式
-            var cleanedHtml = ScriptStyleRegex().Replace(htmlContent, string.Empty);
-            
             // 根据提示类型执行不同的提取策略
             string extractedContent;
-            if (prompt.Contains("标题", StringComparison.OrdinalIgnoreCase) || 
+            if (prompt.Contains("标题", StringComparison.OrdinalIgnoreCase) ||
                 prompt.Contains("title", StringComparison.OrdinalIgnoreCase))
             {
-                extractedContent = ExtractTitle(cleanedHtml);
+                // 使用Task.Run在后台线程执行CPU绑定操作
+                extractedContent = await Task.Run(() =>
+                {
+                    var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+                    var docCopy = new HtmlDocument();
+                    docCopy.LoadHtml(doc.DocumentNode.OuterHtml);
+                    RemoveUnnecessaryContent(docCopy);
+                    return this.ExtractTitle(docCopy.DocumentNode.OuterHtml, url);
+                });
             }
-            else if (prompt.Contains("元数据", StringComparison.OrdinalIgnoreCase) || 
+            else if (prompt.Contains("元数据", StringComparison.OrdinalIgnoreCase) ||
                      prompt.Contains("meta", StringComparison.OrdinalIgnoreCase))
             {
-                extractedContent = ExtractMetaInformation(cleanedHtml);
+                // 使用Task.Run在后台线程执行CPU绑定操作
+                extractedContent = await Task.Run(() =>
+                {
+                    var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+                    var docCopy = new HtmlDocument();
+                    docCopy.LoadHtml(doc.DocumentNode.OuterHtml);
+                    RemoveUnnecessaryContent(docCopy);
+                    return this.ExtractMetaInformation(docCopy.DocumentNode.OuterHtml, url);
+                });
             }
-            else if (prompt.Contains("链接", StringComparison.OrdinalIgnoreCase) || 
+            else if (prompt.Contains("链接", StringComparison.OrdinalIgnoreCase) ||
                      prompt.Contains("link", StringComparison.OrdinalIgnoreCase))
             {
-                extractedContent = ExtractLinks(cleanedHtml);
+                // 使用Task.Run在后台线程执行CPU绑定操作
+                extractedContent = await Task.Run(() =>
+                {
+                    var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+                    var docCopy = new HtmlDocument();
+                    docCopy.LoadHtml(doc.DocumentNode.OuterHtml);
+                    RemoveUnnecessaryContent(docCopy);
+                    return this.ExtractLinks(docCopy.DocumentNode.OuterHtml, url);
+                });
             }
-            else if (prompt.Contains("结构", StringComparison.OrdinalIgnoreCase) || 
+            else if (prompt.Contains("结构", StringComparison.OrdinalIgnoreCase) ||
                      prompt.Contains("structure", StringComparison.OrdinalIgnoreCase))
             {
-                extractedContent = AnalyzeStructureAsync(cleanedHtml).Result;
+                // 结构分析已经是异步方法
+                extractedContent = await this.AnalyzeStructureAsync(htmlContent, url);
             }
             else
             {
                 // 默认提取主要内容
-                extractedContent = ExtractMainContentAsync(cleanedHtml).Result;
+                extractedContent = await this.ExtractMainContentAsync(htmlContent, url);
+
                 // 限制结果长度
                 if (extractedContent.Length > 2000)
                 {
@@ -181,74 +265,95 @@ public partial class AIAssistedHelper(ILogger<AIAssistedHelper> logger) : IAIHel
                 }
             }
 
-            _logger.LogInformation("Successfully extracted content with prompt, result length: {Length}", extractedContent.Length);
-            return Task.FromResult(extractedContent);
+            this.logger.LogInformation("Successfully extracted content with prompt, result length: {Length}", extractedContent.Length);
+            return extractedContent;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to extract content with prompt: {Prompt}", prompt);
-            return Task.FromResult(string.Empty);
+            this.logger.LogError(ex, "Failed to extract content with prompt: {Prompt}", prompt);
+            return string.Empty;
         }
     }
 
-    public Task<string> AnalyzeStructureAsync(string htmlContent)
+    /// <summary>
+    /// 分析HTML结构.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>HTML结构分析报告.</returns>
+    public async Task<string> AnalyzeStructureAsync(string htmlContent, string url = "")
     {
+        if (string.IsNullOrWhiteSpace(htmlContent))
+        {
+            this.logger.LogWarning("Empty HTML content provided for structure analysis");
+            return string.Empty;
+        }
+
         try
         {
-            if (string.IsNullOrWhiteSpace(htmlContent))
+            this.logger.LogDebug("Analyzing HTML structure");
+
+            // 第一步：在后台线程执行CPU密集型的HTML处理
+            var structureBuilder = await Task.Run(() =>
             {
-                _logger.LogWarning("Empty HTML content provided for structure analysis");
-                return Task.FromResult(string.Empty);
-            }
+                // 获取或创建HTML文档
+                var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
 
-            _logger.LogDebug("Analyzing HTML structure");
+                // 创建文档副本以避免修改原始缓存文档
+                var docCopy = new HtmlDocument();
+                docCopy.LoadHtml(doc.DocumentNode.OuterHtml);
 
-            // 移除脚本和样式
-            var cleanedHtml = ScriptStyleRegex().Replace(htmlContent, string.Empty);
+                // 移除脚本、样式和iframe等不需要的内容
+                RemoveUnnecessaryContent(docCopy);
 
-            // 分析HTML结构
-            var structureBuilder = new StringBuilder();
-            structureBuilder.AppendLine("# HTML结构分析报告");
-            structureBuilder.AppendLine();
+                var cleanedHtml = docCopy.DocumentNode.OuterHtml;
 
-            // 1. 提取标题
-            var title = ExtractTitle(cleanedHtml);
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                structureBuilder.AppendLine($"## 页面标题");
-                structureBuilder.AppendLine($"- {title}");
-                structureBuilder.AppendLine();
-            }
+                // 分析HTML结构
+                var builder = new StringBuilder();
+                builder.AppendLine("# HTML结构分析报告");
+                builder.AppendLine();
 
-            // 2. 分析元数据
-            var metaInfo = ExtractMetaInformation(cleanedHtml);
-            if (!string.IsNullOrWhiteSpace(metaInfo))
-            {
-                structureBuilder.AppendLine($"## 元数据");
-                structureBuilder.AppendLine(metaInfo);
-                structureBuilder.AppendLine();
-            }
+                // 1. 提取标题
+                var title = this.ExtractTitle(cleanedHtml, url);
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    builder.AppendLine($"## 页面标题");
+                    builder.AppendLine($"- {title}");
+                    builder.AppendLine();
+                }
 
-            // 3. 分析内容结构
-            structureBuilder.AppendLine($"## 内容结构");
-            
-            // 统计段落
-            var paragraphs = ExtractParagraphs(cleanedHtml);
-            structureBuilder.AppendLine($"- 段落数量: {paragraphs.Count}");
-            
-            // 统计标题层级
-            var headings = ExtractHeadings(cleanedHtml);
-            foreach (var heading in headings)
-            {
-                structureBuilder.AppendLine($"- {heading.Key}标题: {heading.Value}个");
-            }
-            
-            // 统计链接数量
-            var links = ExtractLinksCount(cleanedHtml);
-            structureBuilder.AppendLine($"- 链接数量: {links}");
-            
-            // 4. 内容摘要
-            var summary = ExtractMainContentAsync(cleanedHtml).Result;
+                // 2. 分析元数据
+                var metaInfo = this.ExtractMetaInformation(cleanedHtml, url);
+                if (!string.IsNullOrWhiteSpace(metaInfo))
+                {
+                    builder.AppendLine($"## 元数据");
+                    builder.AppendLine(metaInfo);
+                    builder.AppendLine();
+                }
+
+                // 3. 分析内容结构
+                builder.AppendLine($"## 内容结构");
+
+                // 统计段落
+                var paragraphs = this.ExtractParagraphs(cleanedHtml, url);
+                builder.AppendLine($"- 段落数量: {paragraphs.Count}");
+
+                // 统计标题层级
+                var headings = this.ExtractHeadings(cleanedHtml, url);
+                foreach (var heading in headings)
+                {
+                    builder.AppendLine($"- {heading.Key}标题: {heading.Value}个");
+                }
+
+                // 统计链接数量
+                var links = this.ExtractLinksCount(cleanedHtml, url);
+                builder.AppendLine($"- 链接数量: {links}");
+
+                return builder;
+            });
+
+            // 第二步：执行异步的内容摘要提取
+            var summary = await this.ExtractMainContentAsync(htmlContent, url);
             if (!string.IsNullOrWhiteSpace(summary))
             {
                 structureBuilder.AppendLine();
@@ -257,153 +362,507 @@ public partial class AIAssistedHelper(ILogger<AIAssistedHelper> logger) : IAIHel
             }
 
             var result = structureBuilder.ToString();
-            _logger.LogInformation("Successfully analyzed HTML structure");
-            return Task.FromResult(result);
+            this.logger.LogInformation("Successfully analyzed HTML structure");
+            return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to analyze HTML structure");
-            return Task.FromResult(string.Empty);
+            this.logger.LogError(ex, "Failed to analyze HTML structure");
+            return string.Empty;
         }
     }
 
+    /// <summary>
+    /// 检查AI服务是否可用.
+    /// </summary>
+    /// <returns>如果AI服务可用则为true，否则为false.</returns>
     public Task<bool> IsAvailableAsync()
     {
         // 模拟AI服务可用性检查
-        var available = _isAvailable && _isInitialized;
-        _logger.LogDebug("AI service availability: {Available}", available);
+        var available = this.isAvailable && this.isInitialized;
+        this.logger.LogDebug("AI service availability: {Available}", available);
         return Task.FromResult(available);
     }
 
-    #region Private Helper Methods
+    /// <summary>
+    /// 额外换行符正则表达式
+    /// </summary>
+    /// <returns>匹配额外换行符的正则表达式</returns>
+    [GeneratedRegex(@"\s+\n\s+")]
+    private static partial Regex ExtraNewlineRegex();
 
+    /// <summary>
+    /// 额外空格正则表达式
+    /// </summary>
+    /// <returns>匹配额外空格的正则表达式</returns>
+    [GeneratedRegex(@"\s{2,}")]
+    private static partial Regex ExtraWhitespaceRegex();
+
+    /// <summary>
+    /// 换行符正则表达式
+    /// </summary>
+    /// <returns>匹配换行符的正则表达式</returns>
+    [GeneratedRegex(@"(\r\n|\r|\n)")]
+    private static partial Regex NewlineRegex();
+
+    /// <summary>
+    /// 移除HTML文档中不需要的内容.
+    /// </summary>
+    /// <param name="doc">HTML文档.</param>
+    private static void RemoveUnnecessaryContent(HtmlDocument doc)
+    {
+        var nodesToRemove = doc.DocumentNode.SelectNodes("//script | //style | //iframe | //noscript | //svg");
+        if (nodesToRemove != null)
+        {
+            foreach (var node in nodesToRemove)
+            {
+                node.Remove();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 生成缓存键.
+    /// </summary>
+    /// <param name="prefix">缓存键前缀.</param>
+    /// <param name="content">内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>唯一的缓存键.</returns>
+    private static string GenerateCacheKey(string prefix, string content, string url = "")
+    {
+        var bytes = Encoding.UTF8.GetBytes(content);
+        var hash = System.Security.Cryptography.MD5.HashData(bytes);
+        var hashString = Convert.ToHexString(hash).ToLower();
+        return string.IsNullOrEmpty(url) ? $"{prefix}:{hashString}" : $"{prefix}:{url}:{hashString}";
+    }
+
+    /// <summary>
+    /// 清理文本内容，移除多余的换行符和空格.
+    /// </summary>
+    /// <param name="text">原始文本内容.</param>
+    /// <returns>清理后的文本内容.</returns>
     private static string CleanTextContent(string text)
     {
         // 标准化换行符
         text = NewlineRegex().Replace(text, "\n");
-        
+
         // 移除多余的换行符
         text = ExtraNewlineRegex().Replace(text, "\n\n");
-        
+
         // 移除多余的空格
         text = ExtraWhitespaceRegex().Replace(text, " ");
-        
+
         // 移除行首行尾空格
         var lines = text.Split(['\n'], StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .Where(line => line.Length > 0);
-        
+
         return string.Join("\n", lines);
     }
 
-    private static string ExtractTitle(string htmlContent)
+    /// <summary>
+    /// 获取或创建HTML文档.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>HTML文档.</returns>
+    private HtmlDocument GetOrCreateHtmlDocument(string htmlContent, string url = "")
     {
-        var match = TitleTagRegex().Match(htmlContent);
-        if (match.Success)
+        // 首先尝试从缓存获取
+        var cachedDoc = this.GetCachedHtmlDocument(htmlContent, url);
+        if (cachedDoc != null)
         {
-            return HtmlTagRegex().Replace(match.Groups[2].Value, string.Empty).Trim();
+            return cachedDoc;
         }
+
+        // 如果缓存中没有，创建新的HTML文档
+        var doc = new HtmlDocument();
+        doc.LoadHtml(htmlContent);
+
+        // 存入缓存
+        this.CacheHtmlDocument(htmlContent, doc, url);
+
+        return doc;
+    }
+
+    /// <summary>
+    /// 从缓存获取HTML文档.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>HTML文档或null.</returns>
+    private HtmlDocument? GetCachedHtmlDocument(string htmlContent, string url = "")
+    {
+        var key = GenerateCacheKey("html_doc", htmlContent, url);
+        if (this.htmlDocumentCache.TryGetValue(key, out var cacheItem))
+        {
+            if (cacheItem.IsExpired)
+            {
+                // 如果缓存过期，移除它
+                this.htmlDocumentCache.TryRemove(key, out _);
+                this.logger.LogDebug("HTML document cache expired, removed from cache");
+                return null;
+            }
+
+            this.logger.LogDebug("Retrieved HTML document from cache");
+            return cacheItem.Value;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 将HTML文档存入缓存.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="doc">HTML文档.</param>
+    /// <param name="url">URL（可选）.</param>
+    private void CacheHtmlDocument(string htmlContent, HtmlDocument doc, string url = "")
+    {
+        var key = GenerateCacheKey("html_doc", htmlContent, url);
+        var cacheItem = new CacheItem<HtmlDocument>(doc, DateTime.UtcNow.AddMilliseconds(CacheExpirationMs));
+        this.htmlDocumentCache.TryAdd(key, cacheItem);
+        this.logger.LogDebug("Cached HTML document");
+    }
+
+    /// <summary>
+    /// 从缓存获取提取结果.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="type">提取类型.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取结果或null.</returns>
+    private string? GetCachedExtractionResult(string htmlContent, string type, string url = "")
+    {
+        var key = GenerateCacheKey($"extraction_{type}", htmlContent, url);
+        if (this.extractionResultCache.TryGetValue(key, out var cacheItem))
+        {
+            if (cacheItem.IsExpired)
+            {
+                // 如果缓存过期，移除它
+                this.extractionResultCache.TryRemove(key, out _);
+                this.logger.LogDebug("Extraction result cache expired, removed from cache for type: {Type}", type);
+                return null;
+            }
+
+            this.logger.LogDebug("Retrieved extraction result from cache for type: {Type}", type);
+            return cacheItem.Value;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 将提取结果存入缓存.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="type">提取类型.</param>
+    /// <param name="result">提取结果.</param>
+    /// <param name="url">URL（可选）.</param>
+    private void CacheExtractionResult(string htmlContent, string type, string result, string url = "")
+    {
+        var key = GenerateCacheKey($"extraction_{type}", htmlContent, url);
+        var cacheItem = new CacheItem<string>(result, DateTime.UtcNow.AddMilliseconds(CacheExpirationMs));
+        this.extractionResultCache.TryAdd(key, cacheItem);
+        this.logger.LogDebug("Cached extraction result for type: {Type}", type);
+    }
+
+    /// <summary>
+    /// 提取HTML标题.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取到的标题文本.</returns>
+    private string ExtractTitle(string htmlContent, string url = "")
+    {
+        // 尝试从缓存获取结果
+        var cachedResult = this.GetCachedExtractionResult(htmlContent, "title", url);
+        if (cachedResult != null)
+        {
+            return cachedResult;
+        }
+
+        // 获取或创建HTML文档
+        var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+
+        // 优先提取<title>标签内容
+        var titleElement = doc.DocumentNode.SelectSingleNode("//title");
+        if (titleElement != null && !string.IsNullOrWhiteSpace(titleElement.InnerText))
+        {
+            var title = titleElement.InnerText.Trim();
+            this.CacheExtractionResult(htmlContent, "title", title, url);
+            return title;
+        }
+
+        // 如果没有<title>标签，尝试提取<h1>标签内容
+        var h1Element = doc.DocumentNode.SelectSingleNode("//h1");
+        if (h1Element != null && !string.IsNullOrWhiteSpace(h1Element.InnerText))
+        {
+            var title = h1Element.InnerText.Trim();
+            this.CacheExtractionResult(htmlContent, "title", title, url);
+            return title;
+        }
+
+        this.CacheExtractionResult(htmlContent, "title", string.Empty, url);
         return string.Empty;
     }
 
-    private static string ExtractMetaInformation(string htmlContent)
+    /// <summary>
+    /// 提取HTML元数据信息.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取到的元数据信息文本.</returns>
+    private string ExtractMetaInformation(string htmlContent, string url = "")
     {
-        var matches = MetaTagRegex().Matches(htmlContent);
-        var metaInfo = new StringBuilder();
-        
-        foreach (Match match in matches)
+        // 尝试从缓存获取结果
+        var cachedResult = this.GetCachedExtractionResult(htmlContent, "meta_info", url);
+        if (cachedResult != null)
         {
-            var tagContent = match.Value;
-            if (tagContent.Contains("description", StringComparison.OrdinalIgnoreCase))
+            return cachedResult;
+        }
+
+        // 获取或创建HTML文档
+        var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+
+        var metaInfo = new StringBuilder();
+
+        // 提取描述元数据
+        var descriptionNode = doc.DocumentNode.SelectSingleNode("//meta[@name='description' or @property='og:description']");
+        if (descriptionNode != null)
+        {
+            var content = descriptionNode.GetAttributeValue("content", string.Empty);
+            if (!string.IsNullOrWhiteSpace(content))
             {
-                var contentMatch = ContentRegex().Match(tagContent);
-                if (contentMatch.Success)
-                {
-                    metaInfo.AppendLine($"- 描述: {contentMatch.Groups[1].Value}");
-                }
-            }
-            else if (tagContent.Contains("keywords", StringComparison.OrdinalIgnoreCase))
-            {
-                var contentMatch = ContentRegex().Match(tagContent);
-                if (contentMatch.Success)
-                {
-                    metaInfo.AppendLine($"- 关键词: {contentMatch.Groups[1].Value}");
-                }
-            }
-            else if (tagContent.Contains("title", StringComparison.OrdinalIgnoreCase))
-            {
-                var contentMatch = ContentRegex().Match(tagContent);
-                if (contentMatch.Success)
-                {
-                    metaInfo.AppendLine($"- 标题: {contentMatch.Groups[1].Value}");
-                }
+                metaInfo.AppendLine($"- 描述: {content}");
             }
         }
-        
-        return metaInfo.ToString().Trim();
+
+        // 提取关键词元数据
+        var keywordsNode = doc.DocumentNode.SelectSingleNode("//meta[@name='keywords']");
+        if (keywordsNode != null)
+        {
+            var content = keywordsNode.GetAttributeValue("content", string.Empty);
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                metaInfo.AppendLine($"- 关键词: {content}");
+            }
+        }
+
+        // 提取标题元数据（Open Graph）
+        var ogTitleNode = doc.DocumentNode.SelectSingleNode("//meta[@property='og:title']");
+        if (ogTitleNode != null)
+        {
+            var content = ogTitleNode.GetAttributeValue("content", string.Empty);
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                metaInfo.AppendLine($"- 标题: {content}");
+            }
+        }
+
+        var result = metaInfo.ToString().Trim();
+        this.CacheExtractionResult(htmlContent, "meta_info", result, url);
+        return result;
     }
 
-    private static List<string> ExtractParagraphs(string htmlContent)
+    /// <summary>
+    /// 提取HTML段落.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取到的段落列表.</returns>
+    private List<string> ExtractParagraphs(string htmlContent, string url = "")
     {
-        var text = HtmlTagRegex().Replace(htmlContent, string.Empty);
-        var paragraphs = text.Split(["\n\n"], StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Trim())
+        // 尝试从缓存获取结果（将列表序列化为JSON字符串存储）
+        var cachedResult = this.GetCachedExtractionResult(htmlContent, "paragraphs", url);
+        if (cachedResult != null)
+        {
+            // 简单的字符串解析，将缓存的结果转换回列表
+            return [.. cachedResult.Split(["|||"], StringSplitOptions.RemoveEmptyEntries)];
+        }
+
+        // 获取或创建HTML文档
+        var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+
+        // 提取所有段落标签
+        var pNodes = doc.DocumentNode.SelectNodes("//p");
+        if (pNodes == null)
+        {
+            return [];
+        }
+
+        var paragraphs = pNodes.Select(p => p.InnerText.Trim())
             .Where(p => p.Length > 50) // 过滤太短的段落
             .ToList();
-        
+
+        // 将列表序列化为字符串存入缓存
+        var serializedResult = string.Join("|||", paragraphs);
+        this.CacheExtractionResult(htmlContent, "paragraphs", serializedResult, url);
+
         return paragraphs;
     }
 
-    private static Dictionary<string, int> ExtractHeadings(string htmlContent)
+    /// <summary>
+    /// 提取HTML标题等级.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>标题等级统计字典，键为标题等级（H1-H6），值为出现次数.</returns>
+    private Dictionary<string, int> ExtractHeadings(string htmlContent, string url = "")
     {
-        var headings = new Dictionary<string, int> { { "H1", 0 }, { "H2", 0 }, { "H3", 0 }, { "H4", 0 }, { "H5", 0 }, { "H6", 0 } };
-        
-        var matches = HeadingRegex().Matches(htmlContent);
-        foreach (Match match in matches)
+        // 尝试从缓存获取结果（将字典序列化为字符串存储）
+        var cachedResult = this.GetCachedExtractionResult(htmlContent, "headings", url);
+        if (cachedResult != null)
         {
-            if (match.Groups.Count > 1 && int.TryParse(match.Groups[1].Value, out int level))
+            // 简单的字符串解析，将缓存的结果转换回字典
+            var cachedHeadings = new Dictionary<string, int> { { "H1", 0 }, { "H2", 0 }, { "H3", 0 }, { "H4", 0 }, { "H5", 0 }, { "H6", 0 } };
+            var entries = cachedResult.Split(["|||"], StringSplitOptions.RemoveEmptyEntries);
+            foreach (var entry in entries)
             {
-                if (level >= 1 && level <= 6)
+                var parts = entry.Split([":"], StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2 && int.TryParse(parts[1], out int count))
                 {
-                    headings[$"H{level}"]++;
+                    if (cachedHeadings.ContainsKey(parts[0]))
+                    {
+                        cachedHeadings[parts[0]] = count;
+                    }
                 }
             }
+
+            return cachedHeadings;
         }
-        
+
+        // 获取或创建HTML文档
+        var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+
+        var headings = new Dictionary<string, int> { { "H1", 0 }, { "H2", 0 }, { "H3", 0 }, { "H4", 0 }, { "H5", 0 }, { "H6", 0 } };
+
+        // 提取所有标题标签（h1-h6）
+        for (int i = 1; i <= 6; i++)
+        {
+            var headingNodes = doc.DocumentNode.SelectNodes($"//h{i}");
+            if (headingNodes != null)
+            {
+                headings[$"H{i}"] = headingNodes.Count;
+            }
+        }
+
+        // 将字典序列化为字符串存入缓存
+        var serializedResult = string.Join("|||", headings.Select(kv => $"{kv.Key}:{kv.Value}"));
+        this.CacheExtractionResult(htmlContent, "headings", serializedResult, url);
+
         return headings;
     }
 
-    private static int ExtractLinksCount(string htmlContent)
+    /// <summary>
+    /// 提取HTML链接数量.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取到的链接数量.</returns>
+    private int ExtractLinksCount(string htmlContent, string url = "")
     {
-        return LinkTagRegex().Matches(htmlContent).Count;
+        // 尝试从缓存获取结果
+        var cachedResult = this.GetCachedExtractionResult(htmlContent, "links_count", url);
+        if (cachedResult != null && int.TryParse(cachedResult, out int count))
+        {
+            return count;
+        }
+
+        // 获取或创建HTML文档
+        var doc = this.GetOrCreateHtmlDocument(htmlContent, url);
+
+        var links = doc.DocumentNode.SelectNodes("//a[@href]");
+        var result = links?.Count ?? 0;
+
+        // 存入缓存
+        this.CacheExtractionResult(htmlContent, "links_count", result.ToString(), url);
+
+        return result;
     }
 
-    private static string ExtractLinks(string htmlContent)
+    /// <summary>
+    /// 提取HTML链接.
+    /// </summary>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取到的链接列表文本.</returns>
+    private string ExtractLinks(string htmlContent, string url = "")
     {
-        var matches = LinkWithTextRegex().Matches(htmlContent);
-        
-        var linksBuilder = new StringBuilder();
-        int count = 0;
-        
-        foreach (Match match in matches.Take(20)) // 限制最多20个链接
+        // 尝试从缓存获取结果
+        var cachedResult = this.GetCachedExtractionResult(htmlContent, "links", url);
+        if (cachedResult != null)
         {
-            var url = match.Groups[1].Value;
-            var text = HtmlTagRegex().Replace(match.Groups[2].Value, string.Empty).Trim();
-            
-            if (!string.IsNullOrWhiteSpace(url))
+            return cachedResult;
+        }
+
+        // 尝试从缓存获取HTML文档
+        var doc = this.GetCachedHtmlDocument(htmlContent, url);
+        if (doc == null)
+        {
+            doc = new HtmlDocument();
+            doc.LoadHtml(htmlContent);
+            this.CacheHtmlDocument(htmlContent, doc, url);
+        }
+
+        var links = doc.DocumentNode.SelectNodes("//a[@href]");
+        if (links == null || links.Count == 0)
+        {
+            this.CacheExtractionResult(htmlContent, "links", string.Empty, url);
+            return string.Empty;
+        }
+
+        var linksText = new StringBuilder();
+        var processedUrls = new HashSet<string>(); // 用于去重
+
+        foreach (var link in links)
+        {
+            var href = link.GetAttributeValue("href", string.Empty);
+            var text = link.InnerText.Trim();
+
+            if (string.IsNullOrWhiteSpace(href) || processedUrls.Contains(href))
             {
-                linksBuilder.AppendLine($"- [{text}]({url})");
-                count++;
+                continue;
             }
+
+            processedUrls.Add(href);
+
+            // 限制每个链接的文本长度
+            if (text.Length > 50)
+            {
+                text = string.Concat(text.AsSpan(0, 50), "...");
+            }
+
+            linksText.AppendLine($"- [{text}]({href})");
         }
-        
-        if (matches.Count > 20)
-        {
-            linksBuilder.AppendLine($"- ... 还有 {matches.Count - 20} 个链接未显示");
-        }
-        
-        return linksBuilder.ToString().Trim();
+
+        var result = linksText.ToString().Trim();
+        this.CacheExtractionResult(htmlContent, "links", result, url);
+
+        return result;
     }
 
-    #endregion
+    /// <summary>
+    /// 缓存项结构体，用于存储缓存值和过期时间.
+    /// </summary>
+    /// <typeparam name="T">缓存值的类型.</typeparam>
+    /// <param name="value">缓存的值.</param>
+    /// <param name="expirationTime">缓存项的过期时间.</param>
+    private readonly struct CacheItem<T>(T value, DateTime expirationTime)
+    {
+        /// <summary>
+        /// Gets 获取缓存的值.
+        /// </summary>
+        public T Value { get; } = value;
+
+        /// <summary>
+        /// Gets a value indicating whether 获取一个值，指示缓存项是否已过期.
+        /// </summary>
+        public bool IsExpired => DateTime.UtcNow > this.ExpirationTime;
+
+        /// <summary>
+        /// Gets 获取缓存项的过期时间.
+        /// </summary>
+        private DateTime ExpirationTime { get; } = expirationTime;
+    }
 }

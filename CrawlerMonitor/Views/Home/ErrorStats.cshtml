@@ -1,0 +1,350 @@
+@{ ViewData["Title"] = "Error Statistics"; }
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+        .card { 
+            background: white; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+        }
+        .stat-item { 
+            text-align: center; 
+            padding: 15px; 
+        }
+        .stat-value { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #007bff; 
+        }
+        .stat-label { 
+            font-size: 14px; 
+            color: #666; 
+        }
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            background: #007bff; 
+            color: white; 
+        }
+        .error-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 10px 0; 
+        }
+        .error-table th, 
+        .error-table td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        .error-table th { 
+            background-color: #f2f2f2; 
+            font-weight: bold; 
+        }
+        .error-table tr:nth-child(even) { 
+            background-color: #f9f9f9; 
+        }
+        .error-table tr:hover { 
+            background-color: #f5f5f5; 
+        }
+        .error-type { 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            color: white; 
+        }
+        .error-type-network { background-color: #007bff; }
+        .error-type-parse { background-color: #17a2b8; }
+        .error-type-antibot { background-color: #dc3545; }
+        .error-type-timeout { background-color: #ffc107; color: #212529; }
+        .error-type-storage { background-color: #6f42c1; }
+        .error-type-config { background-color: #28a745; }
+        .error-type-concurrency { background-color: #fd7e14; }
+        .error-type-other { background-color: #6c757d; }
+        .status-code { 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            font-size: 12px; 
+            font-weight: bold; 
+        }
+        .status-code-4xx { background-color: #ffc107; color: #212529; }
+        .status-code-5xx { background-color: #dc3545; color: white; }
+        .status-code-other { background-color: #6c757d; color: white; }
+        .timestamp { font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Error Statistics Dashboard</h1>
+        
+        <!-- 刷新按钮 -->
+        <div style="margin-bottom: 20px;">
+            <button class="btn" onclick="refreshData()">Refresh Data</button>
+        </div>
+
+        <!-- 错误统计概览 -->
+        <div class="card">
+            <h2>Error Overview</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalErrors">0</div>
+                    <div class="stat-label">Total Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="networkErrors">0</div>
+                    <div class="stat-label">Network Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="parseErrors">0</div>
+                    <div class="stat-label">Parse Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="antiBotErrors">0</div>
+                    <div class="stat-label">Anti-Bot Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="timeoutErrors">0</div>
+                    <div class="stat-label">Timeout Errors</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="errorRate">0.00%</div>
+                    <div class="stat-label">Error Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错误类型分布 -->
+        <div class="card">
+            <h2>Error Type Distribution</h2>
+            <canvas id="errorDistributionChart" width="400" height="200"></canvas>
+        </div>
+
+        <!-- 最近错误列表 -->
+        <div class="card">
+            <h2>Recent Errors</h2>
+            <div id="recentErrorsContainer">
+                <table class="error-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Error Type</th>
+                            <th>Status Code</th>
+                            <th>Error Message</th>
+                            <th>Retry Count</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentErrorsList">
+                        <!-- Recent errors will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 图表对象
+        let errorDistributionChart;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+            refreshData();
+            setInterval(refreshData, 10000); // 每10秒自动刷新
+        });
+
+        // 初始化错误分布图表
+        function initializeChart() {
+            const ctx = document.getElementById('errorDistributionChart').getContext('2d');
+            errorDistributionChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#007bff', // Network
+                            '#17a2b8', // Parse
+                            '#dc3545', // AntiBot
+                            '#ffc107', // Timeout
+                            '#6f42c1', // Storage
+                            '#28a745', // Config
+                            '#fd7e14', // Concurrency
+                            '#6c757d'  // Other
+                        ],
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                    return `${label}: ${value} (${percentage})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 刷新数据
+        async function refreshData() {
+            try {
+                // 获取错误统计数据
+                const errorStatsResponse = await fetch('/api/monitor/errors/statistics');
+                const errorStats = await errorStatsResponse.json();
+
+                // 获取错误分布数据
+                const errorDistResponse = await fetch('/api/monitor/errors/distribution');
+                const errorDist = await errorDistResponse.json();
+
+                // 获取最近错误数据
+                const recentErrorsResponse = await fetch('/api/monitor/errors/recent');
+                const recentErrors = await recentErrorsResponse.json();
+
+                // 更新错误概览
+                updateErrorOverview(errorStats);
+
+                // 更新错误分布图表
+                updateErrorDistribution(errorDist);
+
+                // 更新最近错误列表
+                updateRecentErrors(recentErrors);
+
+                console.log('Error statistics updated successfully');
+            } catch (error) {
+                console.error('Failed to update error statistics:', error);
+            }
+        }
+
+        // 更新错误概览
+        function updateErrorOverview(stats) {
+            document.getElementById('totalErrors').textContent = stats.TotalErrors || 0;
+            document.getElementById('networkErrors').textContent = stats.NetworkErrors || 0;
+            document.getElementById('parseErrors').textContent = stats.ParseErrors || 0;
+            document.getElementById('antiBotErrors').textContent = stats.AntiBotErrors || 0;
+            document.getElementById('timeoutErrors').textContent = stats.TimeoutErrors || 0;
+            document.getElementById('errorRate').textContent = stats.ErrorRate ? stats.ErrorRate.toFixed(2) + '%' : '0.00%';
+        }
+
+        // 更新错误分布图表
+        function updateErrorDistribution(distribution) {
+            if (!distribution.Distribution) return;
+
+            const labels = distribution.Distribution.map(item => item.ErrorType);
+            const data = distribution.Distribution.map(item => item.Count);
+
+            errorDistributionChart.data.labels = labels;
+            errorDistributionChart.data.datasets[0].data = data;
+            errorDistributionChart.update();
+        }
+
+        // 更新最近错误列表
+        function updateRecentErrors(recentErrors) {
+            if (!recentErrors.Errors) return;
+
+            const errorList = document.getElementById('recentErrorsList');
+            errorList.innerHTML = ''; // 清空现有内容
+
+            recentErrors.Errors.forEach(error => {
+                const row = document.createElement('tr');
+
+                // URL列
+                const urlCell = document.createElement('td');
+                urlCell.textContent = error.Url;
+                urlCell.style.maxWidth = '300px';
+                urlCell.style.overflow = 'hidden';
+                urlCell.style.textOverflow = 'ellipsis';
+                urlCell.style.whiteSpace = 'nowrap';
+
+                // 错误类型列
+                const errorTypeCell = document.createElement('td');
+                const errorTypeSpan = document.createElement('span');
+                errorTypeSpan.className = `error-type error-type-${error.ErrorType.toLowerCase()}`;
+                errorTypeSpan.textContent = error.ErrorType;
+                errorTypeCell.appendChild(errorTypeSpan);
+
+                // 状态码列
+                const statusCodeCell = document.createElement('td');
+                const statusCodeSpan = document.createElement('span');
+                if (error.StatusCode >= 400 && error.StatusCode < 500) {
+                    statusCodeSpan.className = 'status-code status-code-4xx';
+                } else if (error.StatusCode >= 500) {
+                    statusCodeSpan.className = 'status-code status-code-5xx';
+                } else {
+                    statusCodeSpan.className = 'status-code status-code-other';
+                }
+                statusCodeSpan.textContent = error.StatusCode || 'N/A';
+                statusCodeCell.appendChild(statusCodeSpan);
+
+                // 错误消息列
+                const errorMessageCell = document.createElement('td');
+                errorMessageCell.textContent = error.ErrorMessage;
+                errorMessageCell.style.maxWidth = '300px';
+                errorMessageCell.style.overflow = 'hidden';
+                errorMessageCell.style.textOverflow = 'ellipsis';
+                errorMessageCell.style.whiteSpace = 'nowrap';
+
+                // 重试计数列
+                const retryCountCell = document.createElement('td');
+                retryCountCell.textContent = error.RetryCount || 0;
+
+                // 时间戳列
+                const timestampCell = document.createElement('td');
+                const timestampSpan = document.createElement('span');
+                timestampSpan.className = 'timestamp';
+                timestampSpan.textContent = new Date(error.Timestamp).toLocaleString();
+                timestampCell.appendChild(timestampSpan);
+
+                // 添加到行
+                row.appendChild(urlCell);
+                row.appendChild(errorTypeCell);
+                row.appendChild(statusCodeCell);
+                row.appendChild(errorMessageCell);
+                row.appendChild(retryCountCell);
+                row.appendChild(timestampCell);
+
+                // 添加到表格
+                errorList.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>

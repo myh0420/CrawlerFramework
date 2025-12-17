@@ -1,28 +1,63 @@
-// CrawlerCore/Extractors/BaseExtractors.cs
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using CrawlerInterFaces.Interfaces;
-using CrawlerEntity.Models;
-using HtmlAgilityPack;
-using System.Text.RegularExpressions;
+// <copyright file="BaseExtractors.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
 
 namespace CrawlerCore.Extractors;
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using CrawlerEntity.Models;
+using CrawlerInterFaces.Interfaces;
+using HtmlAgilityPack;
+
 /// <summary>
-/// 链接提取器
+/// 链接提取器.
 /// </summary>
-public class LinkExtractor : IContentExtractor
+public class LinkExtractor : IContentExtractor, IPlugin
 {
+    /// <inheritdoc/>
     public string Name => "LinkExtractor";
 
+    // IPlugin接口实现
+
+    /// <inheritdoc/>
+    public string PluginName => "LinkExtractor";
+
+    /// <inheritdoc/>
+    public string Version => "1.0.0";
+
+    /// <inheritdoc/>
+    public string Description => "链接提取器插件，用于从HTML文档中提取链接";
+
+    /// <inheritdoc/>
+    public PluginType PluginType => PluginType.Extractor;
+
+    /// <inheritdoc/>
+    public string Author => "CrawlerFramework Team";
+
+    /// <inheritdoc/>
+    public Type EntryPointType => typeof(LinkExtractor);
+
+    // ICrawlerComponent接口实现
+
+    /// <inheritdoc/>
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    /// <inheritdoc/>
+    public Task ShutdownAsync() => Task.CompletedTask;
+
+    /// <inheritdoc/>
     public Task<ExtractionResult> ExtractAsync(HtmlDocument htmlDocument, DownloadResult downloadResult)
     {
         var result = new ExtractionResult();
-        
+
         if (htmlDocument?.DocumentNode == null)
+        {
             return Task.FromResult(result);
+        }
 
         try
         {
@@ -32,7 +67,7 @@ public class LinkExtractor : IContentExtractor
             {
                 foreach (var node in linkNodes)
                 {
-                    var href = node.GetAttributeValue("href", "").Trim();
+                    var href = node.GetAttributeValue("href", string.Empty).Trim();
                     if (!string.IsNullOrEmpty(href))
                     {
                         // 转换为绝对URL
@@ -51,7 +86,7 @@ public class LinkExtractor : IContentExtractor
             {
                 foreach (var node in imgNodes)
                 {
-                    var src = node.GetAttributeValue("src", "").Trim();
+                    var src = node.GetAttributeValue("src", string.Empty).Trim();
                     if (!string.IsNullOrEmpty(src))
                     {
                         var absoluteUrl = ToAbsoluteUrl(downloadResult.Url, src);
@@ -88,23 +123,56 @@ public class LinkExtractor : IContentExtractor
         {
             // 忽略URL转换错误
         }
+
         return null;
     }
 }
 
 /// <summary>
-/// 元数据提取器
+/// 元数据提取器.
 /// </summary>
-public class MetadataExtractor : IContentExtractor
+public class MetadataExtractor : IContentExtractor, IPlugin
 {
+    /// <inheritdoc/>
     public string Name => "MetadataExtractor";
 
+    // IPlugin接口实现
+
+    /// <inheritdoc/>
+    public string PluginName => "MetadataExtractor";
+
+    /// <inheritdoc/>
+    public string Version => "1.0.0";
+
+    /// <inheritdoc/>
+    public string Description => "元数据提取器插件，用于从HTML文档中提取元数据";
+
+    /// <inheritdoc/>
+    public PluginType PluginType => PluginType.Extractor;
+
+    /// <inheritdoc/>
+    public string Author => "CrawlerFramework Team";
+
+    /// <inheritdoc/>
+    public Type EntryPointType => typeof(MetadataExtractor);
+
+    // ICrawlerComponent接口实现
+
+    /// <inheritdoc/>
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    /// <inheritdoc/>
+    public Task ShutdownAsync() => Task.CompletedTask;
+
+    /// <inheritdoc/>
     public Task<ExtractionResult> ExtractAsync(HtmlDocument htmlDocument, DownloadResult downloadResult)
     {
         var result = new ExtractionResult();
 
         if (htmlDocument?.DocumentNode == null)
+        {
             return Task.FromResult(result);
+        }
 
         try
         {
@@ -114,9 +182,9 @@ public class MetadataExtractor : IContentExtractor
             {
                 foreach (var node in metaNodes)
                 {
-                    var name = node.GetAttributeValue("name", "") ?? 
-                              node.GetAttributeValue("property", "");
-                    var content = node.GetAttributeValue("content", "");
+                    var name = node.GetAttributeValue("name", string.Empty) ??
+                              node.GetAttributeValue("property", string.Empty);
+                    var content = node.GetAttributeValue("content", string.Empty);
 
                     if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(content))
                     {
@@ -136,14 +204,14 @@ public class MetadataExtractor : IContentExtractor
             var descriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
             if (descriptionNode != null)
             {
-                result.Data["Description"] = descriptionNode.GetAttributeValue("content", "").Trim();
+                result.Data["Description"] = descriptionNode.GetAttributeValue("content", string.Empty).Trim();
             }
 
             // 提取关键词
             var keywordsNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='keywords']");
             if (keywordsNode != null)
             {
-                result.Data["Keywords"] = keywordsNode.GetAttributeValue("content", "").Trim();
+                result.Data["Keywords"] = keywordsNode.GetAttributeValue("content", string.Empty).Trim();
             }
         }
         catch (Exception ex)
@@ -156,25 +224,57 @@ public class MetadataExtractor : IContentExtractor
 }
 
 /// <summary>
-/// 内容提取器
+/// 内容提取器.
 /// </summary>
-public partial class ContentExtractor : IContentExtractor
+public partial class ContentExtractor : IContentExtractor, IPlugin
 {
+    /// <inheritdoc/>
     public string Name => "ContentExtractor";
 
+    // IPlugin接口实现
+
+    /// <inheritdoc/>
+    public string PluginName => "ContentExtractor";
+
+    /// <inheritdoc/>
+    public string Version => "1.0.0";
+
+    /// <inheritdoc/>
+    public string Description => "内容提取器插件，用于从HTML文档中提取正文内容";
+
+    /// <inheritdoc/>
+    public PluginType PluginType => PluginType.Extractor;
+
+    /// <inheritdoc/>
+    public string Author => "CrawlerFramework Team";
+
+    /// <inheritdoc/>
+    public Type EntryPointType => typeof(ContentExtractor);
+
+    // ICrawlerComponent接口实现
+
+    /// <inheritdoc/>
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    /// <inheritdoc/>
+    public Task ShutdownAsync() => Task.CompletedTask;
+
+    /// <inheritdoc/>
     public Task<ExtractionResult> ExtractAsync(HtmlDocument htmlDocument, DownloadResult downloadResult)
     {
         var result = new ExtractionResult();
 
         if (htmlDocument?.DocumentNode == null)
+        {
             return Task.FromResult(result);
+        }
 
         try
         {
             // 移除脚本和样式
             var nodesToRemove = htmlDocument.DocumentNode
                 .SelectNodes("//script | //style | //noscript | //comment()");
-            
+
             nodesToRemove?.ToList().ForEach(n => n.Remove());
 
             // 提取正文文本
@@ -184,10 +284,10 @@ public partial class ContentExtractor : IContentExtractor
                 var text = bodyNode.InnerText;
                 text = SpaceRegex().Replace(text, " ").Trim();
                 result.Data["BodyText"] = text;
-                
+
                 // 计算文本长度
                 result.Data["TextLength"] = text.Length;
-                
+
                 // 提取前200个字符作为摘要
                 result.Data["Summary"] = text.Length > 200 ? string.Concat(text.AsSpan(0, 200), "...") : text;
             }

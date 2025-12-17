@@ -1,4 +1,8 @@
-// CrawlerMonitor/Program.cs
+// <copyright file="Program.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
+
+using System;
 using CrawlerCore.Configuration;
 using CrawlerMonitor.Hubs;
 using CrawlerServiceDependencyInjection.DependencyInjection;
@@ -6,7 +10,6 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
-using System;
 
 internal class Program
 {
@@ -54,11 +57,11 @@ internal class Program
                 Mappings =
         {
             [".cshtml"] = "text/plain",
-            [".cs"] = "text/plain"
-        }
+            [".cs"] = "text/plain",
+        },
             },
             ServeUnknownFileTypes = true,
-            DefaultContentType = "application/octet-stream"
+            DefaultContentType = "application/octet-stream",
         });
 
         app.UseStaticFiles();
@@ -74,15 +77,13 @@ internal class Program
             name: "config",
             pattern: "{controller=Config}/{action=Index}");
 
-        
-        //app.MapControllerRoute(
+        // app.MapControllerRoute(
         //    name: "testconfig",
         //    pattern: "{controller=TestConfig}/{action=Index}");
 
-
         // 调试：列出所有路由
         app.Use(async (context, next) =>
-        {            
+        {
             if (context.Request.Path == "/debug-routes")
             {
                 var endpoints = app.Services.GetService<IEnumerable<EndpointDataSource>>();
@@ -94,12 +95,14 @@ internal class Program
                             $"{routeEndpoint.DisplayName} : {string.Join(", ", routeEndpoint.RoutePattern.Parameters)}\n");
                     }
                 }
+
                 return;
             }
+
             await next();
         });
-        // API routes
 
+        // API routes
         app.MapHub<CrawlerHub>("/crawlerHub");
         app.MapControllers();
 
@@ -111,11 +114,12 @@ internal class Program
             services.AddCrawlerConfiguration();
 
             services.AddStorageProvider();
+
             // 添加爬虫核心服务
             services.AddAdvancedCrawler();
 
             services.AddCrawlerCore();
-            
+
             // 或者使用SQLite: services.AddSQLiteStorage("crawler.db");
 
             // 添加下载器

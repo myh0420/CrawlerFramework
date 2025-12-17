@@ -1,57 +1,99 @@
-// CrawlerCore/Retry/AdaptiveRetryStrategy.cs
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
-using CrawlerInterFaces.Interfaces;
+// <copyright file="AdaptiveRetryStrategy.cs" company="PlaceholderCompany">
+// Copyright (c) PlaceholderCompany. All rights reserved.
+// </copyright>
 
 namespace CrawlerCore.Retry
 {
-    /// <summary>
-    /// 智能重试策略
-    /// </summary>
-    public class AdaptiveRetryStrategy(ILogger<AdaptiveRetryStrategy>? logger, int baseMaxRetries = 3) : ICrawlerComponent
-    {
-        private readonly ILogger<AdaptiveRetryStrategy> _logger = logger ?? new Logger<AdaptiveRetryStrategy>(new LoggerFactory());
-        private readonly Dictionary<string, DomainRetryInfo> _domainRetryInfo = [];
-        private readonly Lock _lock = new();
-        private readonly int _baseMaxRetries = baseMaxRetries;
-        private bool _isInitialized = false;
+    using System;
+    using System.Collections.Generic;
+    using System.Net;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using CrawlerInterFaces.Interfaces;
+    using Microsoft.Extensions.Logging;
 
+    /// <summary>
+    /// 智能重试策略.
+    /// </summary>
+    public class AdaptiveRetryStrategy : ICrawlerComponent
+    {
+        /// <summary>
+        /// 日志记录器实例.
+        /// </summary>
+        private readonly ILogger<AdaptiveRetryStrategy> logger;
+
+        /// <summary>
+        /// 域名重试信息字典，键为域名，值为对应的重试信息.
+        /// </summary>
+        private readonly Dictionary<string, DomainRetryInfo> domainRetryInfo = [];
+
+        /// <summary>
+        /// 用于保护域名重试信息的线程锁，确保多线程访问时的数据一致性.
+        /// </summary>
+        private readonly Lock @lock = new();
+
+        /// <summary>
+        /// 基础最大重试次数.
+        /// </summary>
+        private readonly int baseMaxRetries;
+
+        /// <summary>
+        /// 初始化 <see cref="AdaptiveRetryStrategy"/> 类的新实例.
+        /// </summary>
+        /// <param name="logger">日志记录器实例.</param>
+        /// <param name="baseMaxRetries">基础最大重试次数，默认值为3.</param>
+        public AdaptiveRetryStrategy(ILogger<AdaptiveRetryStrategy>? logger, int baseMaxRetries = 3)
+        {
+            this.logger = logger ?? new Logger<AdaptiveRetryStrategy>(new LoggerFactory());
+            this.baseMaxRetries = baseMaxRetries;
+        }
+
+        /// <summary>
+        /// 表示重试策略是否已初始化.
+        /// </summary>
+        private bool isInitialized = false;
+
+        /// <summary>
+        /// 异步决定是否应该重试请求.
+        /// </summary>
+        /// <param name="domain">请求的域名.</param>
+        /// <param name="exception">发生的异常.</param>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         public async Task<bool> ShouldRetryAsync(string domain, Exception exception, int currentRetryCount)
         {
             DomainRetryInfo? retryInfo;
 
-            lock (_lock)
+            lock (this.@lock)
             {
-                if (!_domainRetryInfo.TryGetValue(domain, out retryInfo))
+                if (!this.domainRetryInfo.TryGetValue(domain, out retryInfo))
                 {
-                retryInfo = new DomainRetryInfo();
-                _domainRetryInfo[domain] = retryInfo;
-            }
+                    retryInfo = new DomainRetryInfo();
+                    this.domainRetryInfo[domain] = retryInfo;
+                }
 
-            retryInfo.LastError = DateTime.UtcNow;
-            retryInfo.ConsecutiveErrors++;
+                retryInfo.LastError = DateTime.UtcNow;
+                retryInfo.ConsecutiveErrors++;
                 retryInfo.TotalErrors++;
                 retryInfo.RecordError(exception.GetType().Name); // 记录错误类型
             }
 
             // 基于错误类型和频率决定是否重试
-            var shouldRetry = EvaluateRetry(exception, currentRetryCount, retryInfo);
+            var shouldRetry = this.EvaluateRetry(exception, currentRetryCount, retryInfo);
 
             if (shouldRetry)
             {
                 var delay = CalculateRetryDelay(currentRetryCount, retryInfo);
-                _logger.LogDebug("Retrying {Domain} after {Delay}ms (attempt {Attempt}, consecutive errors: {Errors}, error type: {ErrorType})",
+                this.logger.LogDebug(
+                    "Retrying {Domain} after {Delay}ms (attempt {Attempt}, consecutive errors: {Errors}, error type: {ErrorType})",
                     domain, delay, currentRetryCount + 1, retryInfo.ConsecutiveErrors, exception.GetType().Name);
-                
+
                 await Task.Delay(delay);
             }
             else
             {
-                _logger.LogWarning("Giving up on {Domain} after {Attempts} attempts (consecutive errors: {Errors}, error type: {ErrorType})",
+                this.logger.LogWarning(
+                    "Giving up on {Domain} after {Attempts} attempts (consecutive errors: {Errors}, error type: {ErrorType})",
                     domain, currentRetryCount, retryInfo.ConsecutiveErrors, exception.GetType().Name);
             }
 
@@ -59,17 +101,21 @@ namespace CrawlerCore.Retry
         }
 
         /// <summary>
-        /// 评估重试 - 基于错误类型和域名历史数据
+        /// 评估重试 - 基于错误类型和域名历史数据.
         /// </summary>
         private bool EvaluateRetry(Exception exception, int currentRetryCount, DomainRetryInfo retryInfo)
         {
             // 1. 基础检查：超过最大重试次数
-            if (currentRetryCount >= GetMaxRetryCount(retryInfo))
+            if (currentRetryCount >= this.GetMaxRetryCount(retryInfo))
+            {
                 return false;
+            }
 
             // 2. 检查连续错误次数过多
             if (retryInfo.ConsecutiveErrors >= 10) // 连续10次错误，暂停重试
+            {
                 return false;
+            }
 
             // 3. 检查最近是否有成功记录（冷却期检查）
             if (retryInfo.ConsecutiveErrors > 0 &&
@@ -77,7 +123,9 @@ namespace CrawlerCore.Retry
             {
                 // 在成功后的5分钟内，如果还有错误，减少重试机会
                 if (currentRetryCount >= 1)
+                {
                     return false;
+                }
             }
 
             // 4. 基于错误类型的智能决策
@@ -95,124 +143,189 @@ namespace CrawlerCore.Retry
                 System.TimeoutException =>
                     EvaluateTimeoutException(currentRetryCount, retryInfo),
 
-                _ => EvaluateGenericException(exception, currentRetryCount, retryInfo)
+                _ => EvaluateGenericException(exception, currentRetryCount, retryInfo),
             };
 
             return shouldRetry;
         }
 
         /// <summary>
-        /// 计算重试延迟
+        /// 计算重试延迟.
         /// </summary>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>计算得到的重试延迟时间（毫秒）.</returns>
         private static int CalculateRetryDelay(int currentRetryCount, DomainRetryInfo retryInfo)
         {
             // 基础指数退避
             var baseDelay = Math.Pow(2, currentRetryCount) * 1000; // 1s, 2s, 4s...
             var jitter = new Random().Next(0, 500); // 最多500ms抖动
-            
+
             // 基于连续错误次数和总错误次数调整延迟
             var errorMultiplier = 1.0;
-            
+
             if (retryInfo.ConsecutiveErrors > 5)
+            {
                 errorMultiplier = 2.0; // 频繁错误，加倍延迟
+            }
             else if (retryInfo.ConsecutiveErrors > 2)
+            {
                 errorMultiplier = 1.5; // 有一定错误，增加延迟
+            }
 
             // 对于限流错误，使用更长的延迟
             if (retryInfo.LastErrorType?.Contains("429") == true)
             {
                 errorMultiplier = 3.0;
-        }
+            }
 
             return (int)(baseDelay * errorMultiplier) + jitter;
         }
 
+        /// <summary>
+        /// 记录域名请求成功，用于重置连续错误计数和更新统计信息.
+        /// </summary>
+        /// <param name="domain">请求的域名.</param>
         public void RecordSuccess(string domain)
         {
-            lock (_lock)
+            lock (this.@lock)
             {
-            if (_domainRetryInfo.TryGetValue(domain, out DomainRetryInfo? value))
-            {
-                value.ConsecutiveErrors = 0;
-                value.LastSuccess = DateTime.UtcNow;
+                if (this.domainRetryInfo.TryGetValue(domain, out DomainRetryInfo? value))
+                {
+                    value.ConsecutiveErrors = 0;
+                    value.LastSuccess = DateTime.UtcNow;
                     value.TotalSuccess++;
+                }
             }
-        }
 
-            _logger.LogDebug("Success recorded for {Domain}, consecutive errors reset", domain);
+            this.logger.LogDebug("Success recorded for {Domain}, consecutive errors reset", domain);
         }
 
         /// <summary>
-        /// 获取域名统计信息（用于监控和调试）
+        /// 获取域名的重试统计信息（用于监控和调试）.
         /// </summary>
+        /// <param name="domain">请求的域名.</param>
+        /// <returns>域名的重试统计信息，如果不存在则返回null.</returns>
         public DomainRetryInfo? GetDomainStats(string domain)
         {
-            lock (_lock)
+            lock (this.@lock)
             {
-                _domainRetryInfo.TryGetValue(domain, out var retryInfo);
+                this.domainRetryInfo.TryGetValue(domain, out var retryInfo);
                 return retryInfo;
             }
         }
 
         /// <summary>
-        /// 重置域名统计（用于手动恢复）
+        /// 重置域名的重试统计信息（用于手动恢复）.
         /// </summary>
+        /// <param name="domain">请求的域名.</param>
         public void ResetDomainStats(string domain)
         {
-            lock (_lock)
+            lock (this.@lock)
             {
-                if (_domainRetryInfo.ContainsKey(domain))
+                if (this.domainRetryInfo.ContainsKey(domain))
                 {
-                    _domainRetryInfo[domain] = new DomainRetryInfo();
-                    _logger.LogInformation("Statistics reset for domain: {Domain}", domain);
+                    this.domainRetryInfo[domain] = new DomainRetryInfo();
+                    this.logger.LogInformation("Statistics reset for domain: {Domain}", domain);
                 }
             }
         }
 
+        /// <summary>
+        /// 域名重试信息.
+        /// </summary>
         public class DomainRetryInfo
         {
+            /// <summary>
+            /// 获取或设置最近连续发生的错误次数.
+            /// </summary>
             public int ConsecutiveErrors { get; set; }
+
+            /// <summary>
+            /// 获取或设置错误请求的总次数.
+            /// </summary>
             public int TotalErrors { get; set; }
+
+            /// <summary>
+            /// 获取或设置成功请求的总次数.
+            /// </summary>
             public int TotalSuccess { get; set; }
+
+            /// <summary>
+            /// 获取或设置最近发生错误的时间.
+            /// </summary>
             public DateTime LastError { get; set; }
+
+            /// <summary>
+            /// 获取或设置最近成功请求的时间.
+            /// </summary>
             public DateTime LastSuccess { get; set; }
+
+            /// <summary>
+            /// 获取或设置最近发生的错误类型.
+            /// </summary>
             public string? LastErrorType { get; set; }
+
+            /// <summary>
+            /// 获取或设置错误类型的统计信息，键为错误类型名称，值为该错误类型发生的次数.
+            /// </summary>
             public Dictionary<string, int> ErrorTypeCounts { get; set; } = [];
 
-            public double SuccessRate => TotalSuccess + TotalErrors > 0
-                ? (double)TotalSuccess / (TotalSuccess + TotalErrors)
+            /// <summary>
+            /// 获取当前域名的成功率，计算方式为成功次数/(成功次数+错误次数)，如果没有记录则返回1.0.
+            /// </summary>
+            public double SuccessRate => this.TotalSuccess + this.TotalErrors > 0
+                ? (double)this.TotalSuccess / (this.TotalSuccess + this.TotalErrors)
                 : 1.0;
 
+            /// <summary>
+            /// 记录错误.
+            /// </summary>
+            /// <param name="errorType">错误类型.</param>
             public void RecordError(string errorType)
             {
-                LastErrorType = errorType;
-                if (ErrorTypeCounts.TryGetValue(errorType, out int value))
-                    ErrorTypeCounts[errorType] = ++value;
+                this.LastErrorType = errorType;
+                if (this.ErrorTypeCounts.TryGetValue(errorType, out int value))
+                {
+                    this.ErrorTypeCounts[errorType] = ++value;
+                }
                 else
-                    ErrorTypeCounts[errorType] = 1;
+                {
+                    this.ErrorTypeCounts[errorType] = 1;
+                }
             }
         }
 
         /// <summary>
-        /// 根据域名状态获取最大重试次数
+        /// 根据域名状态获取最大重试次数.
         /// </summary>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>计算得到的最大重试次数.</returns>
         private int GetMaxRetryCount(DomainRetryInfo retryInfo)
         {
             // 基础最大重试次数
-            //var baseMaxRetries = 3;
+            // var baseMaxRetries = 3;
 
             // 根据连续错误次数动态调整
             if (retryInfo.ConsecutiveErrors > 5)
+            {
                 return 1; // 频繁错误，只重试1次
+            }
             else if (retryInfo.ConsecutiveErrors > 2)
+            {
                 return 2; // 有一定错误，重试2次
+            }
 
-            return _baseMaxRetries;
+            return this.baseMaxRetries;
         }
 
         /// <summary>
-        /// 评估HTTP异常
+        /// 评估HTTP异常.
         /// </summary>
+        /// <param name="httpEx">HTTP请求异常.</param>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateHttpException(HttpRequestException httpEx, int currentRetryCount, DomainRetryInfo retryInfo)
         {
             var message = httpEx.Message.ToLowerInvariant();
@@ -234,13 +347,17 @@ namespace CrawlerCore.Retry
                 string msg when msg.Contains("401") || msg.Contains("403") =>
                     false, // 认证错误，重试无意义
 
-                _ => EvaluateGenericException(httpEx, currentRetryCount, retryInfo) // 其他HTTP错误
+                _ => EvaluateGenericException(httpEx, currentRetryCount, retryInfo), // 其他HTTP错误
             };
         }
 
         /// <summary>
-        /// 评估Web异常
+        /// 评估Web异常.
         /// </summary>
+        /// <param name="webEx">Web异常.</param>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateWebException(WebException webEx, int currentRetryCount, DomainRetryInfo retryInfo)
         {
             return webEx.Status switch
@@ -257,13 +374,16 @@ namespace CrawlerCore.Retry
                 WebExceptionStatus.ProtocolError =>
                     EvaluateProtocolError(webEx, currentRetryCount),
 
-                _ => EvaluateGenericException(webEx, currentRetryCount, retryInfo) // 其他Web异常
+                _ => EvaluateGenericException(webEx, currentRetryCount, retryInfo), // 其他Web异常
             };
         }
 
         /// <summary>
-        /// 评估超时异常
+        /// 评估超时异常.
         /// </summary>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateTimeoutException(int currentRetryCount, DomainRetryInfo retryInfo)
         {
             // 超时错误可以重试，但连续超时需要谨慎
@@ -277,8 +397,11 @@ namespace CrawlerCore.Retry
         }
 
         /// <summary>
-        /// 评估协议错误
+        /// 评估协议错误.
         /// </summary>
+        /// <param name="webEx">Web异常.</param>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateProtocolError(WebException webEx, int currentRetryCount)
         {
             if (webEx.Response is HttpWebResponse response)
@@ -289,15 +412,19 @@ namespace CrawlerCore.Retry
                     HttpStatusCode.ServiceUnavailable => currentRetryCount < 2, // 503，最多重试2次
                     HttpStatusCode.GatewayTimeout => currentRetryCount < 2, // 504，最多重试2次
                     HttpStatusCode.InternalServerError => currentRetryCount < 1, // 500，最多重试1次
-                    _ => false
+                    _ => false,
                 };
             }
+
             return false;
         }
 
         /// <summary>
-        /// 评估限流错误
+        /// 评估限流错误.
         /// </summary>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateRateLimit(int currentRetryCount, DomainRetryInfo retryInfo)
         {
             // 限流错误：使用指数退避，但限制最大重试次数
@@ -313,8 +440,11 @@ namespace CrawlerCore.Retry
         }
 
         /// <summary>
-        /// 评估服务器错误
+        /// 评估服务器错误.
         /// </summary>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateServerError(int currentRetryCount, DomainRetryInfo retryInfo)
         {
             // 服务器错误：可以重试，但需要谨慎
@@ -327,12 +457,16 @@ namespace CrawlerCore.Retry
         }
 
         /// <summary>
-        /// 评估通用异常
+        /// 评估通用异常.
         /// </summary>
+        /// <param name="exception">发生的异常.</param>
+        /// <param name="currentRetryCount">当前重试次数.</param>
+        /// <param name="retryInfo">域名重试信息.</param>
+        /// <returns>如果应该重试则返回true，否则返回false.</returns>
         private static bool EvaluateGenericException(Exception exception, int currentRetryCount, DomainRetryInfo retryInfo)
         {
             // 记录异常类型以便分析
-            //var exceptionType = exception.GetType().Name;
+            // var exceptionType = exception.GetType().Name;
 
             // 对于特定类型的未知异常，可以有不同的策略
             if (exception is System.IO.IOException || exception is System.Net.Sockets.SocketException)
@@ -358,28 +492,40 @@ namespace CrawlerCore.Retry
             return currentRetryCount < 2;
         }
 
+        /// <inheritdoc/>
+        /// <summary>
+        /// 初始化异步.
+        /// </summary>
         public Task InitializeAsync()
         {
-            if (!_isInitialized)
+            if (!this.isInitialized)
             {
-                _isInitialized = true;
-                _logger.LogDebug("AdaptiveRetryStrategy initialized successfully with base max retries: {BaseMaxRetries}", _baseMaxRetries);
+                this.isInitialized = true;
+                this.logger.LogDebug("AdaptiveRetryStrategy initialized successfully with base max retries: {BaseMaxRetries}", this.baseMaxRetries);
             }
+
             return Task.CompletedTask;
         }
 
+        /// <inheritdoc/>
+        /// <summary>
+        /// 关闭异步.
+        /// </summary>
         public Task ShutdownAsync()
         {
-            if (_isInitialized)
+            if (this.isInitialized)
             {
-                _isInitialized = false;
+                this.isInitialized = false;
+
                 // 清理资源
-                lock (_lock)
+                lock (this.@lock)
                 {
-                    _domainRetryInfo.Clear();
+                    this.domainRetryInfo.Clear();
                 }
-                _logger.LogDebug("AdaptiveRetryStrategy shutdown successfully");
+
+                this.logger.LogDebug("AdaptiveRetryStrategy shutdown successfully");
             }
+
             return Task.CompletedTask;
         }
     }

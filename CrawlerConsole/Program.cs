@@ -89,13 +89,19 @@ namespace CrawlerConsole
 
             // 添加种子URL
             await crawler.AddSeedUrlsAsync([
-                "https://example.com",
-                "https://example.com/news"
+                "https://yy.suyang123.com/words/everyone.html",
+                "https://yy.suyang123.com/chuzhong/qinianji/wyb_2024shangce_words2.html"
             ]);
 
-            Console.WriteLine("Crawler started. Press any key to stop...");
-            Console.ReadKey();
+            Console.WriteLine("Crawler started. Will automatically stop when queue is empty for 30 seconds...");
 
+            // 等待爬虫自动停止（通过监控IsRunning属性）
+            while (crawler.IsRunning)
+            {
+                await Task.Delay(1000);
+            }
+
+            Console.WriteLine("Crawler has stopped automatically.");
             await crawler.StopAsync();
         }
 
@@ -111,8 +117,10 @@ namespace CrawlerConsole
                 builder.AddFilter("Microsoft", LogLevel.Warning);
                 builder.AddFilter("System", LogLevel.Warning);
             });
+
             // 添加配置服务
             services.AddCrawlerConfiguration();
+
             // 添加高级爬虫服务
             services.AddAdvancedCrawler(config =>
             {
@@ -120,11 +128,13 @@ namespace CrawlerConsole
                 config.EnableAntiBotDetection = true;
                 config.RespectRobotsTxt = true;
             });
+
             // 添加HttpClient并配置
             services.AddHttpClient("CrawlerClient", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(30);
-                client.DefaultRequestHeaders.Add("User-Agent",
+                client.DefaultRequestHeaders.Add(
+                    "User-Agent",
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             });
 
@@ -132,10 +142,20 @@ namespace CrawlerConsole
             services.AddCrawlerCore();
 
             // 配置存储
-            var storageType = "FileSystem"; // 或 "SQLite"
+            var storageType = "FileSystem"; // 可以是 "FileSystem", "SQLite", "MySQL" 或 "MongoDB"
             if (storageType == "SQLite")
             {
                 services.AddSQLiteStorage("crawler_data.db");
+            }
+            else if (storageType == "MySQL")
+            {
+                // MySQL存储配置
+                services.AddMySQLStorage("Server=localhost;Database=crawler;Uid=root;Pwd=root;");
+            }
+            else if (storageType == "MongoDB")
+            {
+                // MongoDB存储配置
+                services.AddMongoDBStorage("mongodb://localhost:27017");
             }
             else
             {

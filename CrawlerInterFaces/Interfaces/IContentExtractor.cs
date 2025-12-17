@@ -9,7 +9,7 @@ namespace CrawlerInterFaces.Interfaces
     /// <summary>
     /// 内容提取器接口
     /// </summary>
-    public interface IContentExtractor
+    public interface IContentExtractor : ICrawlerComponent
     {
         /// <summary>
         /// 提取器名称
