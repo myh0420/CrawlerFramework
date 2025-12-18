@@ -50,7 +50,7 @@ namespace CrawlerCore.Security
 
             // 确保密钥长度为32字节（256位）
             this.key = Encoding.UTF8.GetBytes((encryptionKey ?? defaultKey).PadRight(32).Substring(0, 32));
-            
+
             // 确保IV长度为16字节（128位）
             this.iv = Encoding.UTF8.GetBytes((initializationVector ?? defaultIV).PadRight(16).Substring(0, 16));
         }

@@ -15,12 +15,7 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// AI辅助解析器实现类.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="AIAssistedHelper"/> class.
-/// 初始化 <see cref="AIAssistedHelper"/> 类的新实例.
-/// </remarks>
-/// <param name="logger">日志记录器实例.</param>
-public partial class AIAssistedHelper(ILogger<AIAssistedHelper> logger) : IAIHelper
+public partial class AIAssistedHelper : IAIHelper
 {
     /// <summary>
     /// 缓存过期时间（毫秒）.
@@ -38,9 +33,9 @@ public partial class AIAssistedHelper(ILogger<AIAssistedHelper> logger) : IAIHel
     ];
 
     /// <summary>
-    /// 初始化AI辅助解析器.
+    /// 日志记录器实例.
     /// </summary>
-    private readonly ILogger<AIAssistedHelper> logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+    private readonly ILogger<AIAssistedHelper> logger;
 
     /// <summary>
     /// 是否可用.
@@ -61,6 +56,15 @@ public partial class AIAssistedHelper(ILogger<AIAssistedHelper> logger) : IAIHel
     /// 是否已初始化.
     /// </summary>
     private bool isInitialized;
+
+    /// <summary>
+    /// 初始化 <see cref="AIAssistedHelper"/> 类的新实例.
+    /// </summary>
+    /// <param name="logger">日志记录器实例.</param>
+    public AIAssistedHelper(ILogger<AIAssistedHelper> logger)
+    {
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+    }
 
     /// <summary>
     /// 初始化AI辅助解析器.

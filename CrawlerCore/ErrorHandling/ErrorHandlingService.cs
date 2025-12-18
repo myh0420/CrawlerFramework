@@ -118,17 +118,21 @@ namespace CrawlerCore.ErrorHandling
     /// <summary>
     /// 错误处理服务实现.
     /// </summary>
-    /// <remarks>
-    /// Initializes a new instance of the <see cref="ErrorHandlingService"/> class.
-    /// 初始化 <see cref="ErrorHandlingService"/> 类的新实例.
-    /// </remarks>
-    /// <param name="logger">日志记录器实例.</param>
-    public class ErrorHandlingService(ILogger<ErrorHandlingService> logger) : IErrorHandlingService
+    public class ErrorHandlingService : IErrorHandlingService
     {
         /// <summary>
         /// 日志记录器实例，用于记录错误和异常信息.
         /// </summary>
-        private readonly ILogger<ErrorHandlingService> logger = logger;
+        private readonly ILogger<ErrorHandlingService> logger;
+
+        /// <summary>
+        /// 初始化 <see cref="ErrorHandlingService"/> 类的新实例.
+        /// </summary>
+        /// <param name="logger">日志记录器实例.</param>
+        public ErrorHandlingService(ILogger<ErrorHandlingService> logger)
+        {
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+        }
 
         /// <summary>
         /// 处理异常并返回下载结果.

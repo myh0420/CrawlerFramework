@@ -42,67 +42,37 @@ using Microsoft.Extensions.Logging;
 /// await engine.StartAsync(5);
 /// </code>
 /// </example>
-/// <summary>
-/// Initializes a new instance of the <see cref="CrawlerEngine"/> class.
-/// 初始化 <see cref="CrawlerEngine"/> 类的新实例.
-/// </summary>
-/// <param name="scheduler">任务调度器，负责管理爬取请求队列和优先级.</param>
-/// <param name="downloader">下载器，负责从网络获取网页内容.</param>
-/// <param name="parser">解析器，负责解析下载的内容并提取信息.</param>
-/// <param name="storage">存储提供器，负责存储爬取结果和元数据.</param>
-/// <param name="logger">日志记录器，用于记录运行时信息和错误.</param>
-/// <param name="metadataStore">元数据存储，用于存储爬取任务的元数据（可选）.</param>
-/// <param name="antiBotService">反机器人服务，用于检测和应对反爬机制（可选）.</param>
-/// <param name="retryStrategy">重试策略，用于处理下载失败的情况（可选）.</param>
-/// <param name="robotsTxtParser">Robots.txt解析器，用于遵守网站的爬取规则（可选）.</param>
-/// <param name="metrics">指标服务，用于收集和报告爬取性能数据（可选）.</param>
-/// <param name="pluginLoader">插件加载器，用于加载和管理爬虫插件（可选）.</param>
-/// <param name="enableAutoStop">是否启用自动停止功能，当任务队列为空时自动停止（默认：true）.</param>
-/// <param name="autoStopTimeout">自动停止超时时间，当任务队列为空超过此时间时自动停止（默认：30秒）.</param>
-public class CrawlerEngine(
-    IScheduler scheduler,
-    IDownloader downloader,
-    IParser parser,
-    IStorageProvider storage,
-    ILogger<CrawlerEngine> logger,
-    IMetadataStore? metadataStore = null,
-    AntiBotDetectionService? antiBotService = null,
-    AdaptiveRetryStrategy? retryStrategy = null,
-    RobotsTxtParser? robotsTxtParser = null,
-    CrawlerMetrics? metrics = null,
-    IPluginLoader? pluginLoader = null,
-    bool enableAutoStop = true,
-    TimeSpan? autoStopTimeout = null) : IDisposable
+public class CrawlerEngine : IDisposable
 {
     /// <summary>
     /// 任务调度器，负责管理爬取请求队列和优先级.
     /// </summary>
-    private readonly IScheduler scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler), "任务调度器参数不能为空");
+    private readonly IScheduler scheduler;
 
     /// <summary>
     /// 下载器，负责从网络获取网页内容.
     /// </summary>
-    private readonly IDownloader downloader = downloader ?? throw new ArgumentNullException(nameof(downloader), "下载器参数不能为空");
+    private readonly IDownloader downloader;
 
     /// <summary>
     /// 解析器，负责解析下载的内容并提取信息.
     /// </summary>
-    private readonly IParser parser = parser ?? throw new ArgumentNullException(nameof(parser), "解析器参数不能为空");
+    private readonly IParser parser;
 
     /// <summary>
     /// 存储提供器，负责存储爬取结果和元数据.
     /// </summary>
-    private readonly IStorageProvider storage = storage ?? throw new ArgumentNullException(nameof(storage), "存储提供器参数不能为空");
+    private readonly IStorageProvider storage;
 
     /// <summary>
     /// 元数据存储，用于存储爬取任务的元数据（可选）.
     /// </summary>
-    private readonly IMetadataStore? metadataStore = metadataStore;
+    private readonly IMetadataStore? metadataStore;
 
     /// <summary>
     /// 日志记录器，用于记录运行时信息和错误.
     /// </summary>
-    private readonly ILogger<CrawlerEngine> logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+    private readonly ILogger<CrawlerEngine> logger;
 
     /// <summary>
     /// 工作任务列表，用于存储正在运行的工作线程任务.
@@ -142,12 +112,12 @@ public class CrawlerEngine(
     /// <summary>
     /// 自动停止配置.
     /// </summary>
-    private readonly bool enableAutoStop = enableAutoStop; // 是否启用自动停止
+    private readonly bool enableAutoStop; // 是否启用自动停止
 
     /// <summary>
     /// 任务队列为空超时时间，用于判断是否触发自动停止.
     /// </summary>
-    private readonly TimeSpan autoStopTimeout = autoStopTimeout ?? TimeSpan.FromSeconds(30); // 任务队列为空超时时间
+    private readonly TimeSpan autoStopTimeout; // 任务队列为空超时时间
 
     /// <summary>
     /// 用于保护_workerTasks的锁.
@@ -159,27 +129,74 @@ public class CrawlerEngine(
     /// <summary>
     /// 反机器人服务.
     /// </summary>
-    private readonly AntiBotDetectionService? antiBotService = antiBotService;
+    private readonly AntiBotDetectionService? antiBotService;
 
     /// <summary>
     /// 重试策略.
     /// </summary>
-    private readonly AdaptiveRetryStrategy? retryStrategy = retryStrategy;
+    private readonly AdaptiveRetryStrategy? retryStrategy;
 
     /// <summary>
     /// Robots.txt解析器.
     /// </summary>
-    private readonly RobotsTxtParser? robotsTxtParser = robotsTxtParser;
+    private readonly RobotsTxtParser? robotsTxtParser;
 
     /// <summary>
     /// 指标服务.
     /// </summary>
-    private readonly CrawlerMetrics? metrics = metrics;
+    private readonly CrawlerMetrics? metrics;
 
     /// <summary>
     /// 插件加载器.
     /// </summary>
-    private readonly IPluginLoader? pluginLoader = pluginLoader;
+    private readonly IPluginLoader? pluginLoader;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CrawlerEngine"/> class.
+    /// 初始化 <see cref="CrawlerEngine"/> 类的新实例.
+    /// </summary>
+    /// <param name="scheduler">任务调度器，负责管理爬取请求队列和优先级.</param>
+    /// <param name="downloader">下载器，负责从网络获取网页内容.</param>
+    /// <param name="parser">解析器，负责解析下载的内容并提取信息.</param>
+    /// <param name="storage">存储提供器，负责存储爬取结果和元数据.</param>
+    /// <param name="logger">日志记录器，用于记录运行时信息和错误.</param>
+    /// <param name="metadataStore">元数据存储，用于存储爬取任务的元数据（可选）.</param>
+    /// <param name="antiBotService">反机器人服务，用于检测和应对反爬机制（可选）.</param>
+    /// <param name="retryStrategy">重试策略，用于处理下载失败的情况（可选）.</param>
+    /// <param name="robotsTxtParser">Robots.txt解析器，用于遵守网站的爬取规则（可选）.</param>
+    /// <param name="metrics">指标服务，用于收集和报告爬取性能数据（可选）.</param>
+    /// <param name="pluginLoader">插件加载器，用于加载和管理爬虫插件（可选）.</param>
+    /// <param name="enableAutoStop">是否启用自动停止功能，当任务队列为空时自动停止（默认：true）.</param>
+    /// <param name="autoStopTimeout">自动停止超时时间，当任务队列为空超过此时间时自动停止（默认：30秒）.</param>
+    public CrawlerEngine(
+        IScheduler scheduler,
+        IDownloader downloader,
+        IParser parser,
+        IStorageProvider storage,
+        ILogger<CrawlerEngine> logger,
+        IMetadataStore? metadataStore = null,
+        AntiBotDetectionService? antiBotService = null,
+        AdaptiveRetryStrategy? retryStrategy = null,
+        RobotsTxtParser? robotsTxtParser = null,
+        CrawlerMetrics? metrics = null,
+        IPluginLoader? pluginLoader = null,
+        bool enableAutoStop = true,
+        TimeSpan? autoStopTimeout = null)
+    {
+        this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler), "任务调度器参数不能为空");
+        this.downloader = downloader ?? throw new ArgumentNullException(nameof(downloader), "下载器参数不能为空");
+        this.parser = parser ?? throw new ArgumentNullException(nameof(parser), "解析器参数不能为空");
+        this.storage = storage ?? throw new ArgumentNullException(nameof(storage), "存储提供器参数不能为空");
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+        this.metadataStore = metadataStore;
+        this.antiBotService = antiBotService;
+        this.retryStrategy = retryStrategy;
+        this.robotsTxtParser = robotsTxtParser;
+        this.metrics = metrics;
+        this.pluginLoader = pluginLoader;
+        this.enableAutoStop = enableAutoStop;
+        this.autoStopTimeout = autoStopTimeout ?? TimeSpan.FromSeconds(30);
+    }
 
     /// <summary>
     /// 需要移除的工作线程数.

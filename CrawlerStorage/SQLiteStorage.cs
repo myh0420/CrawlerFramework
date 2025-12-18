@@ -1079,9 +1079,18 @@ namespace CrawlerStorage
         /// <summary>
         /// SQLite参数集合包装器，用于简化参数设置.
         /// </summary>
-        private class SQLiteParameterCollectionWrapper(SQLiteParameterCollection parameters)
+        private class SQLiteParameterCollectionWrapper
         {
-            private readonly SQLiteParameterCollection parameters = parameters;
+            private readonly SQLiteParameterCollection parameters;
+
+            /// <summary>
+            /// 初始化 <see cref="SQLiteParameterCollectionWrapper"/> 类的新实例.
+            /// </summary>
+            /// <param name="parameters">SQLite参数集合.</param>
+            public SQLiteParameterCollectionWrapper(SQLiteParameterCollection parameters)
+            {
+                this.parameters = parameters ?? throw new ArgumentNullException(nameof(parameters), "参数集合不能为空");
+            }
 
             public SQLiteParameter this[string name]
             {

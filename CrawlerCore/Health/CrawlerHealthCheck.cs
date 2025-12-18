@@ -16,16 +16,22 @@ namespace CrawlerCore.Health
     /// <summary>
     /// 爬虫健康检查服务，用于监控爬虫引擎的运行状态、存储和内存使用情况.
     /// </summary>
-    /// <remarks>
-    /// Initializes a new instance of the <see cref="CrawlerHealthCheck"/> class.
-    /// 初始化 <see cref="CrawlerHealthCheck"/> 类的新实例.
-    /// </remarks>
-    /// <param name="crawlerEngine">爬虫引擎实例.</param>
-    /// <param name="storageProvider">存储提供程序实例，可不传，默认为FileSystemStorage.</param>
-    public class CrawlerHealthCheck(CrawlerEngine crawlerEngine, IStorageProvider? storageProvider) : IHealthCheck
+    public class CrawlerHealthCheck : IHealthCheck
     {
-        private readonly CrawlerEngine crawlerEngine = crawlerEngine;
-        private readonly IStorageProvider storageProvider = storageProvider ?? new FileSystemStorage(null, null);
+        private readonly CrawlerEngine crawlerEngine;
+        private readonly IStorageProvider storageProvider;
+
+        /// <summary>
+        /// 初始化 <see cref="CrawlerHealthCheck"/> 类的新实例.
+        /// </summary>
+        /// <param name="crawlerEngine">爬虫引擎实例.</param>
+        /// <param name="storageProvider">存储提供程序实例，可不传，默认为FileSystemStorage.</param>
+        /// <exception cref="ArgumentNullException">当 <paramref name="crawlerEngine"/> 为 null 时抛出.</exception>
+        public CrawlerHealthCheck(CrawlerEngine crawlerEngine, IStorageProvider? storageProvider)
+        {
+            this.crawlerEngine = crawlerEngine ?? throw new ArgumentNullException(nameof(crawlerEngine), "爬虫引擎实例不能为空");
+            this.storageProvider = storageProvider ?? new FileSystemStorage(null, null);
+        }
 
         /// <inheritdoc/>
         public async Task<HealthCheckResult> CheckHealthAsync(

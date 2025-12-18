@@ -43,7 +43,7 @@ public class CrawlConfiguration
     /// 请求超时时间，默认值为30秒
     /// </summary>
     public int TimeoutSeconds { get; set; } = 30;
-    
+
     // 存储配置
     /// <summary>
     /// 存储类型，默认值为"FileSystem"

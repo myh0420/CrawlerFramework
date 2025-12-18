@@ -8,19 +8,28 @@ namespace CrawlerDownloader.Utils
     using Microsoft.Extensions.Logging;
 
     /// <summary>
-    /// ILogger 适配器，将泛型 转换为非泛型 ILogger.
+    /// ILogger 适配器，将泛型 ILogger 转换为非泛型 ILogger.
     /// </summary>
-    /// <param name="logger">要封装的 ILogger 实例.</param>
     /// <remarks>
-    /// 此适配器类用于将泛型  转换为非泛型 ILogger，
-    /// 以便在需要非泛型日志记录器的场景中使用。.
+    /// 此适配器类用于将泛型 ILogger 转换为非泛型 ILogger，
+    /// 以便在需要非泛型日志记录器的场景中使用。
     /// </remarks>
-    public class LoggerAdapter(ILogger logger) : ILogger
+    public class LoggerAdapter : ILogger
     {
         /// <summary>
         /// 内部 ILogger 实例.
         /// </summary>
-        private readonly ILogger logger = logger;
+        private readonly ILogger logger;
+
+        /// <summary>
+        /// 初始化 <see cref="LoggerAdapter"/> 类的新实例.
+        /// </summary>
+        /// <param name="logger">要封装的 ILogger 实例.</param>
+        /// <exception cref="ArgumentNullException">当 logger 参数为 null 时抛出.</exception>
+        public LoggerAdapter(ILogger logger)
+        {
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "记录器不能为空");
+        }
 
         /// <summary>
         /// 开始一个日志范围.

@@ -21,17 +21,13 @@ namespace CrawlerScheduler;
 /// <item>处理URL标准化和去重</item>
 /// </list>
 /// </remarks>
-/// <param name="urlFilter">URL过滤器，用于判断是否允许处理特定URL</param>
-/// <param name="delayManager">域名延迟管理器，用于控制对同一域名的请求频率</param>
-/// <param name="logger">日志记录器，用于记录运行时信息和错误</param>
 /// <example>
 /// <code>
 /// var scheduler = new PriorityScheduler(urlFilter, delayManager, logger);
 /// var added = await scheduler.AddUrlAsync(new CrawlRequest { Url = "https://example.com", Priority = 10, Depth = 0 });
 /// </code>
 /// </example>
-public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayManager,
-    ILogger<PriorityScheduler> logger) : IScheduler
+public class PriorityScheduler : IScheduler
 {
     /// <summary>
     /// 优先级队列
@@ -48,15 +44,31 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     /// <summary>
     /// URL过滤规则
     /// </summary>
-    private readonly IUrlFilter _urlFilter = urlFilter;
+    private readonly IUrlFilter _urlFilter;
     /// <summary>
     /// 域名延迟管理器
     /// </summary>
-    private readonly IDomainDelayManager _delayManager = delayManager;
+    private readonly IDomainDelayManager _delayManager;
     /// <summary>
     /// 日志记录器
     /// </summary>
-    private readonly ILogger<PriorityScheduler> _logger = logger;
+    private readonly ILogger<PriorityScheduler> _logger;
+
+    /// <summary>
+    /// 初始化 <see cref="PriorityScheduler"/> 类的新实例.
+    /// </summary>
+    /// <param name="urlFilter">URL过滤器，用于判断是否允许处理特定URL</param>
+    /// <param name="delayManager">域名延迟管理器，用于控制对同一域名的请求频率</param>
+    /// <param name="logger">日志记录器，用于记录运行时信息和错误</param>
+    /// <exception cref="ArgumentNullException">当urlFilter或delayManager参数为null时抛出.</exception>
+    public PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayManager,
+        ILogger<PriorityScheduler> logger)
+    {
+        _urlFilter = urlFilter ?? throw new ArgumentNullException(nameof(urlFilter), "URL过滤器不能为空");
+        _delayManager = delayManager ?? throw new ArgumentNullException(nameof(delayManager), "域名延迟管理器不能为空");
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器不能为空");
+    }
+
     /// <summary>
     /// 任务ID生成器
     /// </summary>
@@ -87,7 +99,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     /// 任务ID前缀
     /// </summary>
     private static string TaskIdPrefix => $"task_{Environment.MachineName}_";
-    
+
     /// <summary>
     /// 域名性能数据
     /// </summary>
@@ -99,16 +111,16 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
         public long LastDownloadTimeMs { get; set; } = 0;
         public DateTime LastSuccessTime { get; set; } = DateTime.MinValue;
         public DateTime LastErrorTime { get; set; } = DateTime.MinValue;
-        
+
         public double AverageDownloadTimeMs => SuccessCount > 0 ? (double)TotalDownloadTimeMs / SuccessCount : 0;
         public double ErrorRate => (SuccessCount + ErrorCount) > 0 ? (double)ErrorCount / (SuccessCount + ErrorCount) : 0;
     }
-    
+
     /// <summary>
     /// 域名性能数据字典
     /// </summary>
     private readonly ConcurrentDictionary<string, DomainPerformanceData> _domainPerformanceData = [];
-    
+
     /// <summary>
     /// 记录域名的下载性能数据
     /// </summary>
@@ -118,7 +130,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     public void RecordDomainPerformance(string domain, long downloadTimeMs, bool isSuccess)
     {
         var performanceData = _domainPerformanceData.GetOrAdd(domain, _ => new DomainPerformanceData());
-        
+
         lock (performanceData)
         {
             if (isSuccess)
@@ -188,7 +200,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
             }
             _processedUrls[normalizedUrl] = true;
 
-            _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}", 
+            _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}",
                 normalizedUrl, priority, request.TaskId);
 
             return true;
@@ -265,7 +277,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                     _processedUrls[request.Url] = true;
                     addedCount++;
 
-                    _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}", 
+                    _logger.LogDebug("URL added to queue: {Url} with priority {Priority}, task ID: {TaskId}",
                         request.Url, priority, request.TaskId);
                 }
             }
@@ -274,7 +286,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                 _queueLock.ExitWriteLock();
             }
         }
-        
+
         return addedCount;
     }
 
@@ -287,7 +299,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
         while (true)
         {
             CrawlRequest? request = null;
-            
+
             _queueLock.EnterWriteLock();
             try
             {
@@ -295,7 +307,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                 {
                     return null;
                 }
-                
+
                 if (_priorityQueue.TryDequeue(out var req, out _))
                 {
                     request = req;
@@ -305,7 +317,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
             {
                 _queueLock.ExitWriteLock();
             }
-            
+
             if (request != null)
             {
                 try
@@ -334,7 +346,7 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     {
         // 基本标准化
         var normalized = url.ToLowerInvariant().Trim();
-        
+
         // 移除URL参数排序和重复参数
         if (normalized.Contains('?'))
         {
@@ -343,11 +355,11 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
             {
                 var baseUrl = parts[0];
                 var queryString = parts[1];
-                
+
                 // 解析查询参数并排序
                 var paramDict = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var paramsList = queryString.Split('&');
-                
+
                 foreach (var param in paramsList)
                 {
                     if (!string.IsNullOrEmpty(param))
@@ -361,13 +373,13 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                         }
                     }
                 }
-                
+
                 // 重建查询字符串
                 var sortedParams = string.Join('&', paramDict.Select(kvp => $"{kvp.Key}={kvp.Value}"));
                 normalized = $"{baseUrl}?{sortedParams}";
             }
         }
-        
+
         return normalized;
     }
 
@@ -379,10 +391,10 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     private int CalculatePriority(CrawlRequest request)
     {
         var priority = request.Priority;
-        
+
         // 根据深度调整优先级
         priority -= request.Depth * 10;
-        
+
         // 根据URL模式调整优先级
         if (request.Url.Contains("/article/") || request.Url.Contains("/news/") || request.Url.Contains("/blog/"))
             priority += 10;
@@ -390,12 +402,12 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
             priority += 5;
         else if (request.Url.EndsWith(".pdf") || request.Url.EndsWith(".doc") || request.Url.EndsWith(".docx"))
             priority += 8;
-        
+
         // 根据域名重要性调整优先级
         var domain = new Uri(request.Url).Host;
         if (IsHighPriorityDomain(domain))
             priority += 15;
-        
+
         // 根据域名性能数据动态调整优先级
         if (_domainPerformanceData.TryGetValue(domain, out var performanceData))
         {
@@ -407,20 +419,20 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
                     var speedBonus = (int)((1000 - Math.Min(1000, performanceData.AverageDownloadTimeMs)) / 100);
                     priority += speedBonus;
                 }
-                
+
                 // 错误率越高，优先级越低（错误率每增加10%降低2优先级）
                 var errorPenalty = (int)(performanceData.ErrorRate * 20);
                 priority -= errorPenalty;
-                
+
                 // 连续错误的域名进一步降低优先级
-                if (performanceData.LastSuccessTime < performanceData.LastErrorTime && 
+                if (performanceData.LastSuccessTime < performanceData.LastErrorTime &&
                     performanceData.ErrorCount > 3)
                 {
                     priority -= 5;
                 }
             }
         }
-        
+
         // 根据队列等待时间调整优先级（避免饥饿）
         if (request.QueuedAt.HasValue)
         {
@@ -452,8 +464,8 @@ public class PriorityScheduler(IUrlFilter urlFilter, IDomainDelayManager delayMa
     {
         if (request.Url.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             return "pdf";
-        if (request.Url.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
-            request.Url.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || 
+        if (request.Url.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+            request.Url.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
             request.Url.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
             return "image";
         if (request.Url.Contains("/api/", StringComparison.OrdinalIgnoreCase))

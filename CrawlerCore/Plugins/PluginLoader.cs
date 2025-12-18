@@ -12,18 +12,22 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// 插件加载器实现.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="PluginLoader"/> class.
-/// 初始化 <see cref="PluginLoader"/> 类的新实例.
-/// </remarks>
-/// <param name="logger">日志记录器实例，用于记录插件加载过程中的日志信息.</param>
-/// <exception cref="ArgumentNullException">当 logger 参数为 null 时抛出.</exception>
-public class PluginLoader(ILogger<PluginLoader> logger) : IPluginLoader
+public class PluginLoader : IPluginLoader
 {
     /// <summary>
     /// 日志记录器实例.
     /// </summary>
-    private readonly ILogger<PluginLoader> logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器不能为空");
+    private readonly ILogger<PluginLoader> logger;
+
+    /// <summary>
+    /// 初始化 <see cref="PluginLoader"/> 类的新实例.
+    /// </summary>
+    /// <param name="logger">日志记录器实例，用于记录插件加载过程中的日志信息.</param>
+    /// <exception cref="ArgumentNullException">当 <paramref name="logger"/> 参数为 null 时抛出.</exception>
+    public PluginLoader(ILogger<PluginLoader> logger)
+    {
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器不能为空");
+    }
 
     /// <summary>
     /// 已加载的插件实例列表，用于存储所有成功加载和初始化的插件。.

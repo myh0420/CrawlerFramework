@@ -5,6 +5,7 @@
 namespace CrawlerServiceDependencyInjection.DependencyInjection
 {
     using CrawlerCore;
+    using CrawlerCore.Security;
     using CrawlerCore.AI;
     using CrawlerCore.AntiBot;
     using CrawlerCore.Configuration;
@@ -47,18 +48,20 @@ namespace CrawlerServiceDependencyInjection.DependencyInjection
         public static IServiceCollection AddCrawlerConfiguration(this IServiceCollection services, string configPath = "appsettings.json")
         {
             services.AddSingleton<IConfigValidator, ConfigValidator>();
+            services.AddSingleton<ISecurityService, AesSecurityService>();
 
             // 先创建一个临时的JsonConfigService来加载初始配置
             services.AddSingleton(provider =>
             {
                 var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
                 var validator = provider.GetRequiredService<IConfigValidator>();
+                var securityService = provider.GetRequiredService<ISecurityService>();
 
                 // 创建临时JsonConfigService加载本地配置
                 var tempConfigService = new JsonConfigService(
                     logger: loggerFactory.CreateLogger<JsonConfigService>(),
                     validator: validator,
-                    securityService: null,
+                    securityService: securityService,
                     defaultConfigPath: configPath);
 
                 // 同步加载配置（在DI容器构建期间）

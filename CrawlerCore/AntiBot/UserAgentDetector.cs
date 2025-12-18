@@ -21,8 +21,8 @@ public class UserAgentDetector : IAntiBotDetector
         // 检测是否有User-Agent相关的错误信息
         var userAgentIndicators = new[]
         {
-            "invalid user agent", "user agent not supported", 
-            "浏览器版本过低", "请使用现代浏览器", 
+            "invalid user agent", "user agent not supported",
+            "浏览器版本过低", "请使用现代浏览器",
             "User-Agent不能为空", "检测到异常User-Agent"
         };
 

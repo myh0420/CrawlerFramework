@@ -14,10 +14,28 @@ namespace CrawlerMonitor.Controllers
     /// <summary>
     /// 配置控制器.
     /// </summary>
-    public class ConfigController(IConfigService configService, IConfigValidator configValidator) : Controller
+    public class ConfigController : Controller
     {
-        private readonly IConfigService configService = configService;
-        private readonly IConfigValidator configValidator = configValidator;
+        /// <summary>
+        /// 配置服务.
+        /// </summary>
+        private readonly IConfigService configService;
+
+        /// <summary>
+        /// 配置验证器.
+        /// </summary>
+        private readonly IConfigValidator configValidator;
+
+        /// <summary>
+        /// 初始化 <see cref="ConfigController"/> 类的新实例.
+        /// </summary>
+        /// <param name="configService">配置服务.</param>
+        /// <param name="configValidator">配置验证器.</param>
+        public ConfigController(IConfigService configService, IConfigValidator configValidator)
+        {
+            this.configService = configService ?? throw new ArgumentNullException(nameof(configService), "配置服务参数不能为空");
+            this.configValidator = configValidator ?? throw new ArgumentNullException(nameof(configValidator), "配置验证器参数不能为空");
+        }
 
         // [HttpGet]
         // [Route("config")]

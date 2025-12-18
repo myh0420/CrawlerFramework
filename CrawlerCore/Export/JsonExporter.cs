@@ -10,6 +10,7 @@ namespace CrawlerCore.Export
     using System.Linq;
     using System.Threading.Tasks;
     using CsvHelper;
+    using Microsoft.Extensions.Logging;
     using Newtonsoft.Json;
 
     /// <summary>
@@ -18,11 +19,17 @@ namespace CrawlerCore.Export
     public class JsonExporter : IDataExporter
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="JsonExporter"/> class.
+        /// 内部日志记录器实例.
+        /// </summary>
+        private readonly ILogger<JsonExporter>? logger;
+
+        /// <summary>
         /// 初始化 <see cref="JsonExporter"/> 类的新实例.
         /// </summary>
-        public JsonExporter()
+        /// <param name="logger">日志记录器实例（可选）.</param>
+        public JsonExporter(ILogger<JsonExporter>? logger = null)
         {
+            this.logger = logger;
         }
 
         /// <inheritdoc/>
@@ -40,14 +47,58 @@ namespace CrawlerCore.Export
         /// </returns>
         public async Task<bool> ExportAsync<T>(IEnumerable<T> data, string filePath)
         {
+            if (data == null)
+            {
+                logger?.LogError("数据集合为空，无法导出为JSON格式");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                logger?.LogError("文件路径为空，无法导出为JSON格式");
+                return false;
+            }
+
             try
             {
-                var json = JsonConvert.SerializeObject(data, Formatting.Indented);
-                await File.WriteAllTextAsync(filePath, json);
+                logger?.LogInformation("开始将数据导出为JSON格式，文件路径: {FilePath}", filePath);
+                
+                // 确保目录存在
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? string.Empty);
+
+                // 使用流式处理减少内存占用
+                using var stream = File.Create(filePath);
+                using var streamWriter = new StreamWriter(stream);
+                using var jsonWriter = new JsonTextWriter(streamWriter)
+                {
+                    Formatting = Formatting.Indented
+                };
+
+                var serializer = new JsonSerializer();
+                serializer.Serialize(jsonWriter, data);
+                await jsonWriter.FlushAsync();
+
+                logger?.LogInformation("JSON数据导出成功，文件路径: {FilePath}", filePath);
                 return true;
             }
-            catch (Exception)
+            catch (ArgumentException ex)
             {
+                logger?.LogError(ex, "JSON导出参数错误，文件路径: {FilePath}", filePath);
+                return false;
+            }
+            catch (IOException ex)
+            {
+                logger?.LogError(ex, "JSON导出文件IO错误，文件路径: {FilePath}", filePath);
+                return false;
+            }
+            catch (JsonException ex)
+            {
+                logger?.LogError(ex, "JSON序列化错误，文件路径: {FilePath}", filePath);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "JSON导出发生未知错误，文件路径: {FilePath}", filePath);
                 return false;
             }
         }

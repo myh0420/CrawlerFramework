@@ -81,7 +81,7 @@ namespace CrawlerDownloader.Services
         public WebProxy ToWebProxy()
         {
             var proxy = new WebProxy(Host, Port);
-            
+
             if (!string.IsNullOrEmpty(Username) && !string.IsNullOrEmpty(Password))
             {
                 proxy.Credentials = new NetworkCredential(Username, Password);
@@ -102,12 +102,22 @@ namespace CrawlerDownloader.Services
     /// <summary>
     /// 代理管理器
     /// </summary>
-    public class ProxyManager(ILogger? logger = null)
+    public class ProxyManager
     {
         /// <summary>
         /// 内部 ILogger 实例
         /// </summary>
-        private readonly ILogger? _logger = logger;
+        private readonly ILogger? _logger;
+
+        /// <summary>
+        /// 初始化 <see cref="ProxyManager"/> 类的新实例.
+        /// </summary>
+        /// <param name="logger">可选的 ILogger 实例，用于日志记录.</param>
+        public ProxyManager(ILogger? logger = null)
+        {
+            _logger = logger;
+        }
+
         /// <summary>
         /// 代理服务器列表
         /// </summary>
@@ -290,7 +300,7 @@ namespace CrawlerDownloader.Services
                 {
                     proxy.FailCount++;
                     proxy.LastFailed = DateTime.UtcNow;
-                    
+
                     // 如果连续失败次数过多，暂时禁用代理
                     if (proxy.FailCount >= 5 && proxy.SuccessRate < 0.2)
                     {
@@ -298,7 +308,7 @@ namespace CrawlerDownloader.Services
                         _logger?.LogWarning("Disabled proxy due to poor performance: {Proxy}", proxy.Address);
                     }
 
-                    _logger?.LogDebug("Recorded failure for proxy: {Proxy}, Reason: {Reason}", 
+                    _logger?.LogDebug("Recorded failure for proxy: {Proxy}, Reason: {Reason}",
                         proxy.Address, reason ?? "Unknown");
                 }
             }
@@ -375,7 +385,7 @@ namespace CrawlerDownloader.Services
 
             // 移除协议前缀（如果有）
             var cleanString = proxyString.Replace("http://", "").Replace("https://", "");
-            
+
             var parts = cleanString.Split(':');
             if (parts.Length < 2)
                 return null;
@@ -400,7 +410,7 @@ namespace CrawlerDownloader.Services
         /// <summary>
         /// 创建使用代理的 HttpClientHandler
         /// </summary>
-        public  HttpClientHandler CreateHttpClientHandler(ProxyServer proxy)
+        public HttpClientHandler CreateHttpClientHandler(ProxyServer proxy)
         {
             var handler = new HttpClientHandler
             {
@@ -431,7 +441,7 @@ namespace CrawlerDownloader.Services
                 };
 
                 // 添加随机 User-Agent
-                client.DefaultRequestHeaders.Add("User-Agent", 
+                client.DefaultRequestHeaders.Add("User-Agent",
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
                 var response = await client.GetAsync(testUrl, HttpCompletionOption.ResponseHeadersRead);
@@ -482,7 +492,7 @@ namespace CrawlerDownloader.Services
 
             await Task.WhenAll(tasks);
 
-            _logger?.LogInformation("Proxy test completed. {WorkingCount}/{TotalCount} proxies are working", 
+            _logger?.LogInformation("Proxy test completed. {WorkingCount}/{TotalCount} proxies are working",
                 workingProxies.Count, proxies.Count);
 
             return workingProxies;

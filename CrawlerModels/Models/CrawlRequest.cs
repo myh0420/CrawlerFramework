@@ -37,7 +37,7 @@ public class CrawlRequest
     /// 爬取方法
     /// </summary>
     public CrawlMethod Method { get; set; } = CrawlMethod.GET;
-    
+
     /// <summary>
     /// 额外请求头
     /// </summary>
@@ -52,32 +52,32 @@ public class CrawlRequest
     /// 最大重试次数
     /// </summary>
     public int MaxRetries { get; set; } = 3;
-    
+
     /// <summary>
     /// 取消令牌
     /// </summary>
     public CancellationToken? CancellationToken { get; set; }
-    
+
     /// <summary>
     /// 爬取配置
     /// </summary>
     public object? Configuration { get; set; }
-    
+
     /// <summary>
     /// 任务ID
     /// </summary>
     public string TaskId { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// 加入队列时间
     /// </summary>
     public DateTime? QueuedAt { get; set; }
-    
+
     /// <summary>
     /// 开始处理时间
     /// </summary>
     public DateTime? StartedAt { get; set; }
-    
+
     /// <summary>
     /// 请求ID
     /// </summary>

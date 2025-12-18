@@ -17,8 +17,7 @@ using Microsoft.AspNetCore.Mvc;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class MonitorController(CrawlerEngine crawlerEngine, IStorageProvider storageProvider,
-    IMetadataStore metadataStore, ILogger<MonitorController> logger) : ControllerBase
+public class MonitorController : ControllerBase
 {
     // 常量数组改为static readonly字段，避免重复创建
 
@@ -35,22 +34,38 @@ public class MonitorController(CrawlerEngine crawlerEngine, IStorageProvider sto
     /// <summary>
     /// 爬虫引擎.
     /// </summary>
-    private readonly CrawlerEngine crawlerEngine = crawlerEngine;
+    private readonly CrawlerEngine crawlerEngine;
 
     /// <summary>
     /// 存储提供程序.
     /// </summary>
-    private readonly IStorageProvider storageProvider = storageProvider;
+    private readonly IStorageProvider storageProvider;
 
     /// <summary>
     /// 元数据存储.
     /// </summary>
-    private readonly IMetadataStore metadataStore = metadataStore;
+    private readonly IMetadataStore metadataStore;
 
     /// <summary>
     /// 日志记录器.
     /// </summary>
-    private readonly ILogger<MonitorController> logger = logger;
+    private readonly ILogger<MonitorController> logger;
+
+    /// <summary>
+    /// 初始化 <see cref="MonitorController"/> 类的新实例.
+    /// </summary>
+    /// <param name="crawlerEngine">爬虫引擎.</param>
+    /// <param name="storageProvider">存储提供程序.</param>
+    /// <param name="metadataStore">元数据存储.</param>
+    /// <param name="logger">日志记录器.</param>
+    public MonitorController(CrawlerEngine crawlerEngine, IStorageProvider storageProvider,
+        IMetadataStore metadataStore, ILogger<MonitorController> logger)
+    {
+        this.crawlerEngine = crawlerEngine ?? throw new ArgumentNullException(nameof(crawlerEngine), "爬虫引擎参数不能为空");
+        this.storageProvider = storageProvider ?? throw new ArgumentNullException(nameof(storageProvider), "存储提供程序参数不能为空");
+        this.metadataStore = metadataStore ?? throw new ArgumentNullException(nameof(metadataStore), "元数据存储参数不能为空");
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+    }
 
     /// <summary>
     /// 获取爬虫状态.

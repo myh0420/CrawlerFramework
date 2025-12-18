@@ -17,17 +17,28 @@ namespace CrawlerMonitor.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class ExportController(CrawlerEngine crawlerEngine, IStorageProvider storageProvider) : ControllerBase
+    public class ExportController : ControllerBase
     {
         /// <summary>
         /// 导出URL控制器.
         /// </summary>
-        private readonly CrawlerEngine crawlerEngine = crawlerEngine;
+        private readonly CrawlerEngine crawlerEngine;
 
         /// <summary>
         /// 存储提供程序.
         /// </summary>
-        private readonly IStorageProvider storageProvider = storageProvider;
+        private readonly IStorageProvider storageProvider;
+
+        /// <summary>
+        /// 初始化 <see cref="ExportController"/> 类的新实例.
+        /// </summary>
+        /// <param name="crawlerEngine">爬虫引擎.</param>
+        /// <param name="storageProvider">存储提供程序.</param>
+        public ExportController(CrawlerEngine crawlerEngine, IStorageProvider storageProvider)
+        {
+            this.crawlerEngine = crawlerEngine ?? throw new ArgumentNullException(nameof(crawlerEngine), "爬虫引擎参数不能为空");
+            this.storageProvider = storageProvider ?? throw new ArgumentNullException(nameof(storageProvider), "存储提供程序参数不能为空");
+        }
 
         /// <summary>
         /// 导出URL.

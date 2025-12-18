@@ -17,17 +17,22 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// 反爬规避服务，用于管理反爬应对策略.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="AntiBotEvasionService"/> class.
-/// 初始化 <see cref="AntiBotEvasionService"/> 类的新实例.
-/// </remarks>
-/// <param name="logger">日志记录器实例.如果为null，则使用默认的LoggerFactory创建新实例.</param>
-public class AntiBotEvasionService(ILogger<AntiBotEvasionService>? logger) : IAntiBotEvasionService
+public class AntiBotEvasionService : IAntiBotEvasionService
 {
     /// <summary>
     /// 日志记录器实例.
     /// </summary>
-    private readonly ILogger<AntiBotEvasionService> logger = logger ?? new Logger<AntiBotEvasionService>(new LoggerFactory());
+    private readonly ILogger<AntiBotEvasionService> logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AntiBotEvasionService"/> class.
+    /// 初始化 <see cref="AntiBotEvasionService"/> 类的新实例.
+    /// </summary>
+    /// <param name="logger">日志记录器实例.如果为null，则使用默认的LoggerFactory创建新实例.</param>
+    public AntiBotEvasionService(ILogger<AntiBotEvasionService>? logger)
+    {
+        this.logger = logger ?? new Logger<AntiBotEvasionService>(new LoggerFactory());
+    }
 
     /// <summary>
     /// 随机数生成器.

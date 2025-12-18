@@ -36,22 +36,22 @@ namespace CrawlerConsole
             var crawler = serviceProvider.GetRequiredService<CrawlerEngine>();
 
             // 注册事件
-            crawler.OnCrawlCompleted += (s, e) => 
+            crawler.OnCrawlCompleted += (s, e) =>
             {
                 Console.WriteLine($"Completed: {e.Url} (Depth: {e.Depth})");
             };
 
-            crawler.OnCrawlError += (s, e) => 
+            crawler.OnCrawlError += (s, e) =>
             {
                 Console.WriteLine($"Error: {e.Url} (Depth: {e.Depth}): {e.Exception.Message}");
             };
 
-            crawler.OnUrlDiscovered += (s, e) => 
+            crawler.OnUrlDiscovered += (s, e) =>
             {
                 Console.WriteLine($"Discovered: {e.AddedUrls} new URLs from {e.SourceUrl}, Total discovered: {e.DiscoveredUrls.Count}");
             };
 
-            crawler.OnStatusChanged += (s, e) => 
+            crawler.OnStatusChanged += (s, e) =>
             {
                 Console.WriteLine($"[STATUS] {e.PreviousStatus} → {e.CurrentStatus}: {e.Message}");
             };
@@ -75,7 +75,7 @@ namespace CrawlerConsole
         private static void ConfigureServices(IServiceCollection services)
         {
             // 添加日志
-            services.AddLogging(builder => 
+            services.AddLogging(builder =>
             {
                 builder.AddConsole();
                 builder.SetMinimumLevel(LogLevel.Information);

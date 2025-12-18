@@ -22,31 +22,31 @@ public class AdvancedCrawlConfiguration : CrawlConfiguration
     /// 是否启用压缩
     /// </summary>
     public bool EnableCompression { get; set; } = true;
-    
+
     // 重试设置
     /// <summary>
     /// 重试策略
     /// </summary>
     public RetryPolicy RetryPolicy { get; set; } = new RetryPolicy();
-    
+
     // 代理设置
     /// <summary>
     /// 代理设置
     /// </summary>
     public ProxySettings ProxySettings { get; set; } = new ProxySettings();
-    
+
     // 缓存设置
     /// <summary>
     /// 缓存设置
     /// </summary>
     public CacheSettings CacheSettings { get; set; } = new CacheSettings();
-    
+
     // 监控设置
     /// <summary>
     /// 监控设置
     /// </summary>
     public MonitoringSettings MonitoringSettings { get; set; } = new MonitoringSettings();
-    
+
     // 高级爬取设置
     /// <summary>
     /// 是否启用JavaScript渲染
@@ -64,7 +64,7 @@ public class AdvancedCrawlConfiguration : CrawlConfiguration
     /// 是否包含原始数据（RawData）
     /// </summary>
     public bool IncludeRawData { get; set; } = true;
-    
+
     // 数据清洗设置
     /// <summary>
     /// 数据清洗设置
@@ -99,7 +99,7 @@ public class RetryPolicy
     /// <summary>
     /// 可重试的HTTP状态码数组
     /// </summary>
-    public string[] RetryableStatusCodes { get; set; } = [ "5xx", "429", "408" ];
+    public string[] RetryableStatusCodes { get; set; } = ["5xx", "429", "408"];
 }
 /// <summary>
 /// 代理设置

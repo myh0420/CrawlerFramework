@@ -58,43 +58,43 @@ public interface IParser : ICrawlerComponent
     void AddExtractor(string name, IContentExtractor extractor);
 }
 /// <summary>
-    /// 调度器组件接口
+/// 调度器组件接口
+/// </summary>
+public interface IScheduler : ICrawlerComponent
+{
+    /// <summary>
+    /// 异步添加爬取请求
     /// </summary>
-    public interface IScheduler : ICrawlerComponent
-    {
-        /// <summary>
-        /// 异步添加爬取请求
-        /// </summary>
-        /// <param name="request">爬取请求</param>
-        /// <returns>是否成功添加</returns>
-        Task<bool> AddUrlAsync(CrawlRequest request);
-        /// <summary>
-        /// 异步添加多个爬取请求
-        /// </summary>
-        /// <param name="requests">爬取请求集合</param>
-        /// <returns>成功添加的请求数量</returns>
-        Task<int> AddUrlsAsync(IEnumerable<CrawlRequest> requests);
-        /// <summary>
-        /// 异步获取下一个爬取请求
-        /// </summary>
-        /// <returns>下一个爬取请求</returns>
-        Task<CrawlRequest?> GetNextAsync();
-        /// <summary>
-        /// 等待队列中的请求数量
-        /// </summary>
-        int QueuedCount { get; }
-        /// <summary>
-        /// 已处理的请求数量
-        /// </summary>
-        int ProcessedCount { get; }
-        /// <summary>
-        /// 记录域名的下载性能数据
-        /// </summary>
-        /// <param name="domain">域名</param>
-        /// <param name="downloadTimeMs">下载时间（毫秒）</param>
-        /// <param name="isSuccess">是否下载成功</param>
-        void RecordDomainPerformance(string domain, long downloadTimeMs, bool isSuccess);
-    }
+    /// <param name="request">爬取请求</param>
+    /// <returns>是否成功添加</returns>
+    Task<bool> AddUrlAsync(CrawlRequest request);
+    /// <summary>
+    /// 异步添加多个爬取请求
+    /// </summary>
+    /// <param name="requests">爬取请求集合</param>
+    /// <returns>成功添加的请求数量</returns>
+    Task<int> AddUrlsAsync(IEnumerable<CrawlRequest> requests);
+    /// <summary>
+    /// 异步获取下一个爬取请求
+    /// </summary>
+    /// <returns>下一个爬取请求</returns>
+    Task<CrawlRequest?> GetNextAsync();
+    /// <summary>
+    /// 等待队列中的请求数量
+    /// </summary>
+    int QueuedCount { get; }
+    /// <summary>
+    /// 已处理的请求数量
+    /// </summary>
+    int ProcessedCount { get; }
+    /// <summary>
+    /// 记录域名的下载性能数据
+    /// </summary>
+    /// <param name="domain">域名</param>
+    /// <param name="downloadTimeMs">下载时间（毫秒）</param>
+    /// <param name="isSuccess">是否下载成功</param>
+    void RecordDomainPerformance(string domain, long downloadTimeMs, bool isSuccess);
+}
 
 //public interface IStorage : ICrawlerComponent
 //{

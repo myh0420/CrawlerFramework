@@ -12,7 +12,7 @@ namespace CrawlerCore.Configuration
     using Consul;
     using Microsoft.Extensions.Logging;
 
-/// <summary>
+    /// <summary>
     /// 配置服务工厂类.
     /// </summary>
     public static class ConfigServiceFactory

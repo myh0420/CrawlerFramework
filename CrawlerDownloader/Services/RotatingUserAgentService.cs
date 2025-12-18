@@ -90,7 +90,7 @@ namespace CrawlerDownloader.Services
 
             var index = _random.Next(_userAgents.Count);
             var userAgent = _userAgents[index];
-            
+
             _logger?.LogDebug("Selected user agent: {UserAgent}", userAgent);
             return userAgent;
         }
@@ -107,7 +107,7 @@ namespace CrawlerDownloader.Services
 
             _currentIndex = (_currentIndex + 1) % _userAgents.Count;
             var userAgent = _userAgents[_currentIndex];
-            
+
             _logger?.LogDebug("Next user agent: {UserAgent}", userAgent);
             return userAgent;
         }
