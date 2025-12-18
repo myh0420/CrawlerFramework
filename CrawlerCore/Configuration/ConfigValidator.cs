@@ -2,11 +2,13 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Configuration
+namespace  CrawlerFramework.CrawlerCore.Configuration
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using CrawlerFramework.CrawlerEntity.Configuration;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
 
     /// <summary>
     /// 配置验证服务实现.

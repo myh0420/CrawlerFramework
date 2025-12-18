@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Metrics
+namespace  CrawlerFramework.CrawlerCore.Metrics
 {
     using System;
     using OpenTelemetry;

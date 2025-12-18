@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
-namespace CrawlerDownloader.Services
+namespace CrawlerFramework.CrawlerDownloader.Services
 {
     /// <summary>
     /// 代理服务器信息

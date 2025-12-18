@@ -2,33 +2,30 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerDownloader
+namespace CrawlerFramework.CrawlerDownloader
 {
     using System;
     using System.Collections.Concurrent;
-    using System.Diagnostics;
     using System.IO;
     using System.IO.Compression;
-    using System.Net;
     using System.Net.Http;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
-    using CrawlerCore.AntiBot;
-    using CrawlerCore.ErrorHandling;
-    using CrawlerCore.Exceptions;
-    using CrawlerCore.Export;
-    using CrawlerCore.Metrics;
-    using CrawlerCore.Retry;
-    using CrawlerCore.Robots;
-    using CrawlerCore.Services;
-    using CrawlerCore.Utils;
-    using CrawlerDownloader.Services;
-    using CrawlerDownloader.Utils;
-    using CrawlerEntity.Configuration;
-    using CrawlerEntity.Enums;
-    using CrawlerEntity.Models;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerCore.AntiBot;
+    using CrawlerFramework.CrawlerCore.ErrorHandling;
+    using CrawlerFramework.CrawlerCore.Exceptions;
+    using CrawlerFramework.CrawlerCore.Export;
+    using CrawlerFramework.CrawlerCore.Metrics;
+    using CrawlerFramework.CrawlerCore.Retry;
+    using CrawlerFramework.CrawlerCore.Robots;
+    using CrawlerFramework.CrawlerCore.Services;
+    using CrawlerFramework.CrawlerCore.Utils;
+    using CrawlerFramework.CrawlerDownloader.Services;
+    using CrawlerFramework.CrawlerEntity.Configuration;
+    using CrawlerFramework.CrawlerEntity.Enums;
+    using CrawlerFramework.CrawlerEntity.Models;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.Logging;
     using OpenTelemetry.Trace;
 

@@ -4,7 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-
+    <RootNamespace>CrawlerFramework.CrawlerCore.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -20,7 +20,7 @@
     <ProjectReference Include="../CrawlerCore/CrawlerCore.csproj" />
     <ProjectReference Include="../CrawlerScheduler/CrawlerScheduler.csproj" />
     <ProjectReference Include="../CrawlerInterFaces/CrawlerInterFaces.csproj" />
-    <ProjectReference Include="../CrawlerModels/CrawlerModels.csproj" />
+    <ProjectReference Include="../CrawlerModels/CrawlerEntity.csproj" />
   </ItemGroup>
 
 </Project>

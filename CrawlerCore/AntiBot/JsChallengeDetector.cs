@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.AntiBot;
+namespace  CrawlerFramework.CrawlerCore.AntiBot;
 
 using System;
 using System.Collections.Generic;
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using CrawlerInterFaces.Models;
 using CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
+using CrawlerFramework.CrawlerInterFaces.Interfaces.AntiBot;
 
 /// <summary>
 /// JavaScript挑战检测器，用于检测网站是否设置了JavaScript挑战（如Cloudflare）.

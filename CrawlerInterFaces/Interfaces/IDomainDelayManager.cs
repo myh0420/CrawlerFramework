@@ -3,7 +3,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace CrawlerInterFaces.Interfaces
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces
 {
     /// <summary>
     /// 域名延迟管理接口

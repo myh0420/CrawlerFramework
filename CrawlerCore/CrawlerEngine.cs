@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore;
+namespace CrawlerFramework.CrawlerCore;
 
 using System.IO;
 using System.Threading.Tasks;
@@ -11,11 +11,11 @@ using CrawlerCore.Metrics;
 using CrawlerCore.Plugins;
 using CrawlerCore.Retry;
 using CrawlerCore.Robots;
-using CrawlerEntity.Configuration;
-using CrawlerEntity.Enums;
-using CrawlerEntity.Events;
-using CrawlerEntity.Models;
-using CrawlerInterFaces.Interfaces;
+using  CrawlerFramework.CrawlerEntity.Configuration;
+using  CrawlerFramework.CrawlerEntity.Enums;
+using  CrawlerFramework.CrawlerEntity.Events;
+using  CrawlerFramework.CrawlerEntity.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 
 /// <summary>

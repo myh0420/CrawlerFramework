@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Security
+namespace  CrawlerFramework.CrawlerCore.Security
 {
     using System.Threading.Tasks;
 

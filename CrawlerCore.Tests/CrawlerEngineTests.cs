@@ -1,9 +1,9 @@
-using CrawlerCore;
-using CrawlerEntity.Configuration;
-using CrawlerEntity.Enums;
-using CrawlerEntity.Events;
-using CrawlerEntity.Models;
-using CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerCore;
+using  CrawlerFramework.CrawlerEntity.Configuration;
+using  CrawlerFramework.CrawlerEntity.Enums;
+using  CrawlerFramework.CrawlerEntity.Events;
+using  CrawlerFramework.CrawlerEntity.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;
@@ -12,7 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace CrawlerCore.Tests;
+namespace CrawlerFramework.CrawlerCore.Tests;
 
 public class CrawlerEngineTests
 {

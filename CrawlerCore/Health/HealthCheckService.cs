@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Health
+namespace  CrawlerFramework.CrawlerCore.Health
 {
     using System;
     using System.Collections.Generic;

@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Exceptions
+namespace  CrawlerFramework.CrawlerCore.Exceptions
 {
     using System;
     using System.Collections.Generic;

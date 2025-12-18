@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Extractors;
+namespace  CrawlerFramework.CrawlerCore.Extractors;
 
 using CrawlerEntity.Models;
 using CrawlerInterFaces.Interfaces;

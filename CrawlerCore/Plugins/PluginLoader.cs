@@ -2,11 +2,11 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Plugins;
+namespace CrawlerFramework.CrawlerCore.Plugins;
 
 using System.IO;
 using System.Reflection;
-using CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 
 /// <summary>

@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerMonitor.Models
+namespace CrawlerFramework.CrawlerMonitor.Models
 {
     /// <summary>
     /// 错误视图模型.

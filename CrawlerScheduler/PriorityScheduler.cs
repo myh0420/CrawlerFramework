@@ -1,13 +1,13 @@
 // CrawlerScheduler/PriorityScheduler.cs
-using CrawlerInterFaces.Interfaces;
-using CrawlerEntity.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerEntity.Models;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace CrawlerScheduler;
+namespace CrawlerFramework.CrawlerScheduler;
 /// <summary>
 /// 优先级调度器，负责管理爬取请求的队列和优先级，并支持域名请求节流
 /// </summary>

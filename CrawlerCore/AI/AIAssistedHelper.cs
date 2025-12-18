@@ -1,14 +1,14 @@
 // <copyright file="AIAssistedHelper.cs" company="PlaceholderCompany">
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
-namespace CrawlerCore.AI;
+namespace  CrawlerFramework.CrawlerCore.AI;
 
 using System;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 

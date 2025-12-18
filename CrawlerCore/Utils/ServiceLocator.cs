@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Utils
+namespace  CrawlerFramework.CrawlerCore.Utils
 {
     using System;
     using Microsoft.Extensions.DependencyInjection;

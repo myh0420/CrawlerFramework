@@ -17,8 +17,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrawlerScheduler", "Crawler
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrawlerConsole", "CrawlerConsole\CrawlerConsole.csproj", "{87F0AE54-9513-4CBD-B2EF-61E15E966AB9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrawlerEntity", "CrawlerModels\CrawlerEntity.csproj", "{DBDA9CAC-9D6E-4237-8441-C03F186F52AC}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrawlerInterFaces", "CrawlerInterFaces\CrawlerInterFaces.csproj", "{43A95F9C-68F9-4958-AEF7-31F56243B9B7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrawlerServiceDependencyInjection", "CrawlerServiceDependencyInjection\CrawlerServiceDependencyInjection.csproj", "{5249F3DB-266A-4FD2-9B43-11B4A4E1024C}"
@@ -29,6 +27,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 		CrawlerFramework.dgml = CrawlerFramework.dgml
 		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrawlerEntity", "CrawlerEntity\CrawlerEntity.csproj", "{11268D4F-BCB4-F8EB-A3B5-A6FB08680615}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -64,10 +64,6 @@ Global
 		{87F0AE54-9513-4CBD-B2EF-61E15E966AB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{87F0AE54-9513-4CBD-B2EF-61E15E966AB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{87F0AE54-9513-4CBD-B2EF-61E15E966AB9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DBDA9CAC-9D6E-4237-8441-C03F186F52AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DBDA9CAC-9D6E-4237-8441-C03F186F52AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DBDA9CAC-9D6E-4237-8441-C03F186F52AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DBDA9CAC-9D6E-4237-8441-C03F186F52AC}.Release|Any CPU.Build.0 = Release|Any CPU
 		{43A95F9C-68F9-4958-AEF7-31F56243B9B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{43A95F9C-68F9-4958-AEF7-31F56243B9B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43A95F9C-68F9-4958-AEF7-31F56243B9B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -76,6 +72,10 @@ Global
 		{5249F3DB-266A-4FD2-9B43-11B4A4E1024C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5249F3DB-266A-4FD2-9B43-11B4A4E1024C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5249F3DB-266A-4FD2-9B43-11B4A4E1024C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11268D4F-BCB4-F8EB-A3B5-A6FB08680615}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11268D4F-BCB4-F8EB-A3B5-A6FB08680615}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11268D4F-BCB4-F8EB-A3B5-A6FB08680615}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11268D4F-BCB4-F8EB-A3B5-A6FB08680615}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace CrawlerCore.Tests;
+namespace  CrawlerFramework.CrawlerCore.Tests;
 
 public class PrioritySchedulerTests
 {

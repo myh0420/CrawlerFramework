@@ -1,10 +1,8 @@
 // CrawlerInterFaces/Interfaces/IContentExtractor.cs
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using CrawlerEntity.Models;
+using CrawlerFramework.CrawlerEntity.Models;
 using HtmlAgilityPack;
 
-namespace CrawlerInterFaces.Interfaces
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces
 {
     /// <summary>
     /// 内容提取器接口

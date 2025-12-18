@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Configuration
+namespace  CrawlerFramework.CrawlerCore.Configuration
 {
     using System;
     using System.IO;

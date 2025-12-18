@@ -2,13 +2,13 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerStorage;
+namespace CrawlerFramework.CrawlerStorage;
 
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
-using CrawlerEntity.Models;
-using CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerEntity.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OpenTelemetry.Trace;

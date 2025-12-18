@@ -1,7 +1,8 @@
 // CrawlerInterFaces/Interfaces/IPlugin.cs
 using System.Reflection;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 
-namespace CrawlerInterFaces.Interfaces;
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces;
 /// <summary>
 /// 插件接口，所有插件都必须实现此接口
 /// </summary>

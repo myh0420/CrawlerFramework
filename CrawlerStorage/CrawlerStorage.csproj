@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>CrawlerFramework.CrawlerStorage</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CrawlerInterFaces\CrawlerInterFaces.csproj" />
-    <ProjectReference Include="..\CrawlerModels\CrawlerEntity.csproj" />
+    <ProjectReference Include="..\CrawlerEntity\CrawlerEntity.csproj" />
   </ItemGroup>
 
   <ItemGroup>

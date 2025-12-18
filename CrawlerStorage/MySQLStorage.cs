@@ -2,15 +2,15 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerStorage
+namespace CrawlerFramework.CrawlerStorage
 {
     using System;
     using System.Collections.Generic;
     using System.Data;
     using System.Threading.Tasks;
-    using CrawlerEntity.Enums;
-    using CrawlerEntity.Models;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerEntity.Enums;
+    using CrawlerFramework.CrawlerEntity.Models;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.Logging;
     using MySql.Data.MySqlClient;
     using Newtonsoft.Json;

@@ -2,14 +2,14 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerMonitor.Controllers
+namespace CrawlerFramework.CrawlerMonitor.Controllers
 {
     using System;
     using System.IO;
     using System.Threading.Tasks;
-    using CrawlerCore;
-    using CrawlerCore.Export;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerCore;
+    using CrawlerFramework.CrawlerCore.Export;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.AspNetCore.Mvc;
 
     /// <summary>

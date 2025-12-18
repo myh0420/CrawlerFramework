@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Configuration
+namespace  CrawlerFramework.CrawlerCore.Configuration
 {
     using System;
     using System.IO;
@@ -10,7 +10,9 @@ namespace CrawlerCore.Configuration
     using System.Threading;
     using System.Threading.Tasks;
     using Consul;
-    using CrawlerCore.Security;
+    using CrawlerFramework.CrawlerCore.Security;
+    using CrawlerFramework.CrawlerEntity.Configuration;
+using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
     using Microsoft.Extensions.Logging;
 
     /// <summary>

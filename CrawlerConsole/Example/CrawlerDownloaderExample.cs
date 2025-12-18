@@ -2,17 +2,17 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerConsole.Example
+namespace CrawlerFramework.CrawlerConsole.Example
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
     using System.Threading.Tasks;
-    using CrawlerDownloader;
-    using CrawlerDownloader.Services;
-    using CrawlerEntity.Models;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerDownloader;
+    using CrawlerFramework.CrawlerDownloader.Services;
+    using CrawlerFramework.CrawlerEntity.Models;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
 

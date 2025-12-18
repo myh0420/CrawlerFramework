@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Retry
+namespace  CrawlerFramework.CrawlerCore.Retry
 {
     using System;
     using System.Collections.Generic;

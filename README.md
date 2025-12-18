@@ -7,7 +7,7 @@ CrawlerFramework/
 ├── CrawlerMonitor/                   // 监控界面
 ├── CrawlerConsole/                   // 控制台应用
 ├── CrawlerInterFaces/                // 接口定义
-├── CrawlerModels/CrawlerEntity.csproj // 实体模型
+├── CrawlerEntity/                    // 实体模型
 └── CrawlerServiceDependencyInjection/ // 依赖注入服务
 
 # 网络爬虫框架使用说明和功能示例

@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Export
+namespace  CrawlerFramework.CrawlerCore.Export
 {
     using System;
     using System.Collections.Generic;

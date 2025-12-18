@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerInterFaces.Models;
+namespace CrawlerFramework.CrawlerInterFaces.Models;
 
 /// <summary>
 /// 反爬虫检测结果类，用于存储对URL访问的反爬虫检测结果.

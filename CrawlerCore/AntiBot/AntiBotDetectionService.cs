@@ -2,14 +2,15 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.AntiBot;
+namespace CrawlerFramework.CrawlerCore.AntiBot;
 
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
-using CrawlerInterFaces.Interfaces;
-using CrawlerInterFaces.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerInterFaces.Interfaces.AntiBot;
+using CrawlerFramework.CrawlerInterFaces.Models;
 using Microsoft.Extensions.Logging;
 
 /// <summary>

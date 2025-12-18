@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 
-namespace CrawlerDownloader.Services
+namespace CrawlerFramework.CrawlerDownloader.Services
 {
     /// <summary>
     /// User-Agent 轮换服务

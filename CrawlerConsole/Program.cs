@@ -2,12 +2,12 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerConsole
+namespace CrawlerFramework.CrawlerConsole
 {
-    using CrawlerCore;
-    using CrawlerEntity.Configuration;
-    using CrawlerEntity.Models;
-    using CrawlerServiceDependencyInjection.DependencyInjection;
+    using CrawlerFramework.CrawlerCore;
+    using CrawlerFramework.CrawlerEntity.Configuration;
+    using CrawlerFramework.CrawlerEntity.Models;
+    using CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
 

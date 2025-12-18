@@ -2,10 +2,11 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerMonitor.Controllers
+namespace CrawlerFramework.CrawlerMonitor.Controllers
 {
     using System.Diagnostics;
-    using CrawlerCore.Configuration;
+    using CrawlerFramework.CrawlerCore.Configuration;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
     using CrawlerMonitor.Models;
     using Microsoft.AspNetCore.Mvc;
 

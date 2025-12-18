@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerDownloader.Utils
+namespace CrawlerFramework.CrawlerDownloader.Utils
 {
     using System;
     using Microsoft.Extensions.Logging;

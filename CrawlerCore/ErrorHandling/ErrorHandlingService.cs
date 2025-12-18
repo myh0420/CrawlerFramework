@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.ErrorHandling
+namespace  CrawlerFramework.CrawlerCore.ErrorHandling
 {
     using System;
     using System.Threading.Tasks;

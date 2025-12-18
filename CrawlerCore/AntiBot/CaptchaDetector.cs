@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.AntiBot;
+namespace  CrawlerFramework.CrawlerCore.AntiBot;
 
 using System;
 using System.Collections.Generic;
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using CrawlerInterFaces.Models;
 using CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
+using CrawlerFramework.CrawlerInterFaces.Interfaces.AntiBot;
 
 /// <summary>
 /// 验证码检测器，用于检测HTML内容中是否包含验证码相关的反爬虫措施.

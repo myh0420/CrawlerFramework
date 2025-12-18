@@ -2,9 +2,9 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-using CrawlerEntity.Models;
+using CrawlerFramework.CrawlerEntity.Models;
 
-namespace CrawlerInterFaces.Interfaces;
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces;
 /// <summary>
 /// 爬虫组件接口
 /// </summary>  

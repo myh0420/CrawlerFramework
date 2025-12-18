@@ -2,12 +2,12 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerMonitor.Hubs
+namespace CrawlerFramework.CrawlerMonitor.Hubs
 {
-    using CrawlerCore;
-    using CrawlerEntity.Configuration;
-    using CrawlerEntity.Enums;
-    using CrawlerEntity.Events;
+    using CrawlerFramework.CrawlerCore;
+    using CrawlerFramework.CrawlerEntity.Configuration;
+    using CrawlerFramework.CrawlerEntity.Enums;
+    using CrawlerFramework.CrawlerEntity.Events;
     using Microsoft.AspNetCore.SignalR;
     using Microsoft.Extensions.Logging;
 

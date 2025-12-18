@@ -2,14 +2,14 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerMonitor.Controllers;
+namespace CrawlerFramework.CrawlerMonitor.Controllers;
 
 using System.Diagnostics;
-using CrawlerCore;
-using CrawlerCore.Metrics;
-using CrawlerEntity.Configuration;
-using CrawlerEntity.Models;
-using CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerCore;
+using CrawlerFramework.CrawlerCore.Metrics;
+using CrawlerFramework.CrawlerEntity.Configuration;
+using CrawlerFramework.CrawlerEntity.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 /// <summary>

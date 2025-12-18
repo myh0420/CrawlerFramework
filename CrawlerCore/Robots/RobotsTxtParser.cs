@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Robots
+namespace  CrawlerFramework.CrawlerCore.Robots
 {
     using System;
     using System.Collections.Generic;

@@ -2,13 +2,14 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerConsole
+namespace CrawlerFramework.CrawlerConsole
 {
-    using CrawlerCore;
-    using CrawlerCore.Configuration;
-    using CrawlerInterFaces.Interfaces;
-    using CrawlerServiceDependencyInjection.DependencyInjection;
-    using CrawlerStorage;
+    using CrawlerFramework.CrawlerCore;
+    using CrawlerFramework.CrawlerCore.Configuration;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
+    using CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection;
+    using CrawlerFramework.CrawlerStorage;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
 

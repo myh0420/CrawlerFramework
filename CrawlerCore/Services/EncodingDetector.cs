@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerCore.Services
+namespace  CrawlerFramework.CrawlerCore.Services
 {
     using System;
     using System.Text;

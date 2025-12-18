@@ -2,10 +2,9 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerEntity.Models;
 
-using CrawlerEntity.Models;
-
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces;
 /// <summary>
 /// 存储提供程序接口，定义了爬取结果的存储操作.
 /// </summary>

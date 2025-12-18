@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerParser;
+namespace CrawlerFramework.CrawlerParser;
 
 using System.Diagnostics;
 using CrawlerCore.Extractors;

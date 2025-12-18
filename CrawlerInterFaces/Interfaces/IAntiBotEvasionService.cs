@@ -2,7 +2,7 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerInterFaces.Interfaces;
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces;
 
 using System.Net.Http;
 using System.Threading.Tasks;

@@ -3,9 +3,10 @@
 // </copyright>
 
 using System;
-using CrawlerCore.Configuration;
-using CrawlerMonitor.Hubs;
-using CrawlerServiceDependencyInjection.DependencyInjection;
+using CrawlerFramework.CrawlerCore;
+using CrawlerFramework.CrawlerCore.Configuration;
+using CrawlerFramework.CrawlerMonitor.Hubs;
+using CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;

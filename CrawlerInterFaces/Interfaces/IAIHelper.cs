@@ -1,7 +1,7 @@
 // CrawlerInterFaces/Interfaces/IAIHelper.cs
 using System.Threading.Tasks;
 
-namespace CrawlerInterFaces.Interfaces
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces
 {
     /// <summary>
     /// AI辅助功能接口

@@ -1,5 +1,5 @@
 // CrawlerInterFaces/Interfaces/IUrlFilter.cs
-namespace CrawlerInterFaces.Interfaces
+namespace CrawlerFramework.CrawlerInterFaces.Interfaces
 {
     /// <summary>
     /// URL过滤器接口

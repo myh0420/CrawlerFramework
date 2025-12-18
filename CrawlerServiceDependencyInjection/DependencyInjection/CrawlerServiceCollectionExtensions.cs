@@ -2,33 +2,34 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace CrawlerServiceDependencyInjection.DependencyInjection
+namespace CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection
 {
-    using CrawlerCore;
-    using CrawlerCore.Security;
-    using CrawlerCore.AI;
-    using CrawlerCore.AntiBot;
-    using CrawlerCore.Configuration;
-    using CrawlerCore.ErrorHandling;
-    using CrawlerCore.Export;
-    using CrawlerCore.Extractors;
-    using CrawlerCore.Health;
-    using CrawlerCore.Metrics;
-    using CrawlerCore.Plugins;
-    using CrawlerCore.Retry;
-    using CrawlerCore.Robots;
-    using CrawlerCore.Services;
-    using CrawlerCore.Utils;
-    using CrawlerDownloader;
-    using CrawlerDownloader.Services;
-    using CrawlerEntity.Configuration;
-    using CrawlerInterFaces.Interfaces;
-    using CrawlerParser;
-    using CrawlerScheduler;
-    using CrawlerStorage;
+    using CrawlerFramework.CrawlerCore;
+    using CrawlerFramework.CrawlerCore.Security;
+    using CrawlerFramework.CrawlerCore.AI;
+    using CrawlerFramework.CrawlerCore.AntiBot;
+    using CrawlerFramework.CrawlerCore.Configuration;
+    using CrawlerFramework.CrawlerCore.ErrorHandling;
+    using CrawlerFramework.CrawlerCore.Export;
+    using CrawlerFramework.CrawlerCore.Extractors;
+    using CrawlerFramework.CrawlerCore.Health;
+    using CrawlerFramework.CrawlerCore.Metrics;
+    using CrawlerFramework.CrawlerCore.Plugins;
+    using CrawlerFramework.CrawlerCore.Retry;
+    using CrawlerFramework.CrawlerCore.Robots;
+    using CrawlerFramework.CrawlerCore.Services;
+    using CrawlerFramework.CrawlerCore.Utils;
+    using CrawlerFramework.CrawlerDownloader;
+    using CrawlerFramework.CrawlerDownloader.Services;
+    using CrawlerFramework.CrawlerEntity.Configuration;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerParser;
+    using CrawlerFramework.CrawlerScheduler;
+    using CrawlerFramework.CrawlerStorage;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.DependencyInjection.Extensions;
     using Microsoft.Extensions.Logging;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
 
     /// <summary>
     /// 爬虫服务集合扩展方法.
