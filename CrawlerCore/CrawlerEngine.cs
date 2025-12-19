@@ -20,6 +20,7 @@ using CrawlerFramework.CrawlerEntity.Models;
 using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 using CrawlerFramework.CrawlerCore.Exceptions;
+using System.Collections.Concurrent;
 
 /// <summary>
 /// 爬虫引擎，负责协调和管理整个爬取任务的执行流程。.
@@ -47,6 +48,16 @@ using CrawlerFramework.CrawlerCore.Exceptions;
 /// </example>
 public class CrawlerEngine : IDisposable
 {
+    /// <summary>
+    /// 最大历史数据点数量.
+    /// </summary>
+    private const int MaxHistoryPoints = 50;
+
+    /// <summary>
+    /// 自适应阈值调整的灵敏度因子（0.1-1.0）.
+    /// </summary>
+    private const double AdaptationSensitivity = 0.3;
+
     /// <summary>
     /// 任务调度器，负责管理爬取请求队列和优先级.
     /// </summary>
@@ -98,19 +109,14 @@ public class CrawlerEngine : IDisposable
     private readonly int maxWorkerCount = Environment.ProcessorCount * 4;
 
     /// <summary>
-    /// 高队列阈值，用于触发增加工作线程.
-    /// </summary>
-    private readonly int queueThresholdHigh = 50;
-
-    /// <summary>
-    /// 低队列阈值，用于触发减少工作线程.
-    /// </summary>
-    private readonly int queueThresholdLow = 10;
-
-    /// <summary>
     /// 线程调整间隔，用于定时检查和调整工作线程数量.
     /// </summary>
     private readonly int threadAdjustIntervalMs = 5000;
+
+    /// <summary>
+    /// 队列长度历史数据，用于自适应调整阈值.
+    /// </summary>
+    private readonly ConcurrentBag<int> queueLengthHistory = [];
 
     /// <summary>
     /// 自动停止配置.
@@ -240,6 +246,16 @@ public class CrawlerEngine : IDisposable
     private bool disposed = false;
 
     /// <summary>
+    /// 高队列阈值，用于触发增加工作线程.
+    /// </summary>
+    private int queueThresholdHigh = 50;
+
+    /// <summary>
+    /// 低队列阈值，用于触发减少工作线程.
+    /// </summary>
+    private int queueThresholdLow = 10;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="CrawlerEngine"/> class.
     /// 初始化 <see cref="CrawlerEngine"/> 类的新实例.
     /// </summary>
@@ -366,6 +382,47 @@ public class CrawlerEngine : IDisposable
     public CrawlerMetrics? GetMetrics()
     {
         return (CrawlerMetrics?)this.metrics;
+    }
+
+    /// <summary>
+    /// 自适应队列阈值管理器，根据历史队列长度数据动态调整高/低队列阈值，实现更智能的线程池调整策略.
+    /// </summary>
+    /// <remarks>
+    /// 该方法通过分析历史队列长度数据，计算平均值和标准差，动态调整队列阈值，使线程池能够更智能地响应不同的负载情况：
+    /// <list type="bullet">
+    /// <item>收集足够的历史数据点（至少10个）来确保统计分析的可靠性</item>
+    /// <item>计算队列长度的平均值、最大值、最小值和标准差</item>
+    /// <item>基于平均值和标准差动态调整高/低队列阈值，使阈值能够适应负载的波动</item>
+    /// <item>确保阈值在合理范围内（高阈值不超过最大工作线程数的10倍，低阈值不小于1）</item>
+    /// <item>限制阈值变化幅度，避免频繁大幅波动（变化幅度不超过当前平均值的30%）</item>
+    /// </list>
+    /// </remarks>
+    private void AdaptiveThresholdManager()
+    {
+        if (this.queueLengthHistory.Count < 10) // 需要足够的历史数据
+            return;
+
+        var history = this.queueLengthHistory.ToArray();
+        int currentAvg = (int)history.Average();
+        int currentMax = history.Max();
+        int currentMin = history.Min();
+
+        // 计算标准差，衡量队列长度的波动
+        double variance = history.Select(x => Math.Pow(x - currentAvg, 2)).Average();
+        double stdDev = Math.Sqrt(variance);
+
+        // 根据历史数据动态调整阈值
+        this.queueThresholdHigh = (int)Math.Max(this.minWorkerCount * 2, currentAvg + (stdDev * 1.5));
+        this.queueThresholdLow = (int)Math.Max(5, currentAvg - (stdDev * 0.5));
+
+        // 确保阈值在合理范围内
+        this.queueThresholdHigh = Math.Min(this.queueThresholdHigh, this.maxWorkerCount * 10);
+        this.queueThresholdLow = Math.Max(this.queueThresholdLow, 1);
+
+        // 限制阈值变化幅度，避免频繁大幅波动
+        int maxChange = (int)(currentAvg * AdaptationSensitivity);
+        this.queueThresholdHigh = Math.Min(this.queueThresholdHigh, currentAvg + maxChange);
+        this.queueThresholdLow = Math.Max(this.queueThresholdLow, currentAvg - maxChange);
     }
 
     /// <summary>
@@ -1677,6 +1734,16 @@ public class CrawlerEngine : IDisposable
                 {
                     currentWorkerCount = this.workerTasks.Count;
                 }
+
+                // 保存当前队列长度到历史记录
+                this.queueLengthHistory.Add(queueLength);
+                if (this.queueLengthHistory.Count > MaxHistoryPoints)
+                {
+                    this.queueLengthHistory.TryTake(out _);
+                }
+
+                // 调用自适应阈值管理器，根据历史数据动态调整队列阈值
+                this.AdaptiveThresholdManager();
 
                 // 动态调整线程数
                 if (queueLength > this.queueThresholdHigh && currentWorkerCount < this.maxWorkerCount)

@@ -12,26 +12,26 @@ namespace CrawlerFramework.CrawlerCore.Retry
     using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.Logging;
 
-        /// <summary>
-        /// 电路状态枚举.
-        /// </summary>
+    /// <summary>
+    /// 电路状态枚举.
+    /// </summary>
     public enum CircuitState
-        {
-            /// <summary>
-            /// 关闭状态，允许请求.
-            /// </summary>
-            Closed,
+    {
+        /// <summary>
+        /// 关闭状态，允许请求.
+        /// </summary>
+        Closed,
 
-            /// <summary>
-            /// 开启状态，拒绝请求.
-            /// </summary>
-            Open,
+        /// <summary>
+        /// 开启状态，拒绝请求.
+        /// </summary>
+        Open,
 
-            /// <summary>
-            /// 半开状态，允许部分请求测试.
-            /// </summary>
-            HalfOpen,
-        }
+        /// <summary>
+        /// 半开状态，允许部分请求测试.
+        /// </summary>
+        HalfOpen,
+    }
 
     /// <summary>
     /// 智能重试策略.

@@ -195,7 +195,9 @@ public class CrawlerEngineTests
     public async Task GetCurrentCrawlStateAsync_ShouldReturnCorrectState()
     {
         // 准备
+        _mockScheduler.Setup(s => s.QueuedCount).Returns(0);
         _mockScheduler.Setup(s => s.ProcessedCount).Returns(25);
+        _mockScheduler.Setup(s => s.ErrorCount).Returns(0);
 
         // 执行测试
         var state = await _crawlerEngine.GetCurrentCrawlStateAsync();
@@ -204,7 +206,7 @@ public class CrawlerEngineTests
         Assert.Equal(CrawlerStatus.Idle, state.Status);
         Assert.Equal(_crawlerEngine.CurrentJobId, state.JobId);
         Assert.Equal(25, state.TotalUrlsProcessed);
-        Assert.Equal(0, state.TotalUrlsDiscovered);
+        Assert.Equal(25, state.TotalUrlsDiscovered); // 0 + 25 = 25
         Assert.Equal(0, state.TotalErrors);
     }
 
