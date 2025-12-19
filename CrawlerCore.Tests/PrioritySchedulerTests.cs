@@ -1,6 +1,6 @@
-using CrawlerScheduler;
-using CrawlerEntity.Models;
-using CrawlerInterFaces.Interfaces;
+using CrawlerFramework.CrawlerScheduler;
+using CrawlerFramework.CrawlerEntity.Models;
+using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;

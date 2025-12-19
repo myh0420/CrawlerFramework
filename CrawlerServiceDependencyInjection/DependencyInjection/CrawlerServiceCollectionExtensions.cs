@@ -113,8 +113,22 @@ namespace CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection
             // 注册插件加载器
             services.TryAddSingleton<IPluginLoader, PluginLoader>();
 
-            // 注册核心服务
-            services.TryAddSingleton<CrawlerEngine>();
+            // 注册核心服务，使用工厂方法注入高级服务（如果已注册）
+            services.TryAddSingleton<CrawlerEngine>(sp =>
+            {
+                return new CrawlerEngine(
+                    scheduler: sp.GetRequiredService<IScheduler>(),
+                    downloader: sp.GetRequiredService<IDownloader>(),
+                    parser: sp.GetRequiredService<IParser>(),
+                    storage: sp.GetRequiredService<IStorageProvider>(),
+                    logger: sp.GetRequiredService<ILogger<CrawlerEngine>>(),
+                    metadataStore: sp.GetService<IMetadataStore>(),
+                    antiBotService: sp.GetService<AntiBotDetectionService>(),
+                    retryStrategy: sp.GetService<AdaptiveRetryStrategy>(),
+                    robotsTxtParser: sp.GetService<RobotsTxtParser>(),
+                    metrics: sp.GetService<ICrawlerMetrics>(),
+                    pluginLoader: sp.GetService<IPluginLoader>());
+            });
 
             return services;
         }
@@ -145,7 +159,7 @@ namespace CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection
                     sp.GetService<ILogger<AdaptiveRetryStrategy>>(),
                     config.RetryPolicy?.MaxRetries ?? 3));
             services.TryAddSingleton<DataExportService>();
-            services.TryAddSingleton<CrawlerMetrics>();
+            services.TryAddSingleton<ICrawlerMetrics, CrawlerMetrics>();
             services.TryAddSingleton<RobotsTxtParser>();
             services.TryAddSingleton<IAIHelper, AIAssistedHelper>();
 

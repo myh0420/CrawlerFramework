@@ -231,7 +231,10 @@ var advancedConfig = new AdvancedCrawlConfiguration
         RemoveScriptsAndStyles = true,
         NormalizeText = true,
         MinContentLength = 100
-    }
+    },
+    
+    // 插件配置
+    PluginsDirectory = "D:\\CustomPluginsDirectory" // 自定义插件目录（可选，默认使用应用程序目录下的Plugins文件夹）
 };
 ```
 
@@ -250,6 +253,7 @@ services.AddAdvancedCrawler(config =>
     config.EnableAntiBotDetection = true;
     config.RespectRobotsTxt = true;
     config.RetryPolicy.MaxRetries = 5;
+    config.PluginsDirectory = "D:\\CustomPluginsDirectory"; // 自定义插件目录
 })
 .AddCrawlerHttpClient()
 .AddFileSystemStorage("advanced_crawler_data")

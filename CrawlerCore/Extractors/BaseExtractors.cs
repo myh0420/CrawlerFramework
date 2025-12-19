@@ -41,6 +41,9 @@ public class LinkExtractor : IContentExtractor, IPlugin
     /// <inheritdoc/>
     public Type EntryPointType => typeof(LinkExtractor);
 
+    /// <inheritdoc/>
+    public int Priority => 5;
+
     // ICrawlerComponent接口实现
 
     /// <inheritdoc/>
@@ -156,6 +159,9 @@ public class MetadataExtractor : IContentExtractor, IPlugin
     /// <inheritdoc/>
     public Type EntryPointType => typeof(MetadataExtractor);
 
+    /// <inheritdoc/>
+    public int Priority => 5;
+
     // ICrawlerComponent接口实现
 
     /// <inheritdoc/>
@@ -250,6 +256,9 @@ public partial class ContentExtractor : IContentExtractor, IPlugin
 
     /// <inheritdoc/>
     public Type EntryPointType => typeof(ContentExtractor);
+
+    /// <inheritdoc/>
+    public int Priority => 5;
 
     // ICrawlerComponent接口实现
 

@@ -74,6 +74,12 @@ public class AdvancedCrawlConfiguration : CrawlConfiguration
     /// 是否启用反机器人检测
     /// </summary>
     public bool EnableAntiBotDetection { get; set; }
+
+    // 插件配置
+    /// <summary>
+    /// 插件目录路径
+    /// </summary>
+    public string? PluginsDirectory { get; set; }
 }
 /// <summary>
 /// 重试策略

@@ -12,6 +12,11 @@ namespace  CrawlerFramework.CrawlerEntity.Models;
 public class CrawlStatistics
 {
     /// <summary>
+    /// 任务ID
+    /// </summary>
+    public string JobId { get; set; } = string.Empty;
+
+    /// <summary>
     /// 总发现的URL数量
     /// </summary>
     public int TotalUrlsDiscovered { get; set; }

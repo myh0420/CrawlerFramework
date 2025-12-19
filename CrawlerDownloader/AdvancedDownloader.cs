@@ -220,6 +220,11 @@ namespace CrawlerFramework.CrawlerDownloader
         public Type EntryPointType => typeof(AdvancedDownloader);
 
         /// <summary>
+        /// Gets 插件优先级（数值越大，优先级越高）.
+        /// </summary>
+        public int Priority => 10;
+
+        /// <summary>
         /// 异步下载URL内容.
         /// </summary>
         /// <param name="request">下载请求.</param>

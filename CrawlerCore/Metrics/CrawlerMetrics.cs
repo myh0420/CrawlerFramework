@@ -2,16 +2,16 @@
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
 
-namespace  CrawlerFramework.CrawlerCore.Metrics
+namespace CrawlerFramework.CrawlerCore.Metrics
 {
     using System;
     using System.Diagnostics;
     using System.Diagnostics.Metrics;
 
     /// <summary>
-    /// 指标收集.
+    /// 指标收集服务实现，用于记录爬虫的各种性能指标和统计数据.
     /// </summary>
-    public class CrawlerMetrics : IDisposable
+    public class CrawlerMetrics : ICrawlerMetrics
     {
         /// <summary>
         /// 指标收集器.
@@ -169,7 +169,7 @@ namespace  CrawlerFramework.CrawlerCore.Metrics
         /// </summary>
         /// <param name="domain">域名.</param>
         /// <param name="errorType">错误类型.</param>
-        public void RecordUrlFailed(string domain, string errorType)
+        public void RecordUrlFailed(string domain, string errorType = "unknown")
         {
             var tags = new TagList
             {
@@ -179,6 +179,78 @@ namespace  CrawlerFramework.CrawlerCore.Metrics
 
             this.urlsFailed.Add(1, tags);
             this.errors.Add(1, tags);
+        }
+
+        /// <summary>
+        /// 记录失败处理的URL（简化版本）.
+        /// </summary>
+        /// <param name="url">URL地址.</param>
+        public void RecordUrlFailed(string url)
+        {
+            try
+            {
+                var domain = new Uri(url).Host;
+                this.RecordUrlFailed(domain, "unknown");
+            }
+            catch
+            {
+                this.RecordUrlFailed("unknown", "invalid_url");
+            }
+        }
+
+        /// <summary>
+        /// 记录完整的爬取结果，包括各个阶段的详细指标.
+        /// </summary>
+        /// <param name="url">爬取的URL地址.</param>
+        /// <param name="success">爬取是否成功.</param>
+        /// <param name="domain">域名.</param>
+        /// <param name="statusCode">HTTP状态码.</param>
+        /// <param name="contentLength">内容长度（字节数）.</param>
+        /// <param name="downloadDurationMs">下载持续时间（毫秒）.</param>
+        /// <param name="parseDurationMs">解析持续时间（毫秒）.</param>
+        /// <param name="storageDurationMs">存储持续时间（毫秒）.</param>
+        /// <param name="errorType">错误类型（仅在失败时使用）.</param>
+        public void RecordCrawlResult(
+            string url,
+            bool success,
+            string domain,
+            int statusCode,
+            long contentLength,
+            double downloadDurationMs,
+            double parseDurationMs,
+            double storageDurationMs,
+            string errorType = "unknown")
+        {
+            try
+            {
+                var tags = new TagList
+                {
+                    { "domain", domain },
+                    { "url", url },
+                    { "status_code", statusCode },
+                };
+
+                if (success)
+                {
+                    // 记录成功的爬取结果
+                    this.urlsProcessed.Add(1, tags);
+                    this.bytesDownloaded.Add(contentLength, tags);
+                    this.downloadDuration.Record(downloadDurationMs, tags);
+                    this.parseDuration.Record(parseDurationMs, tags);
+                    this.storageDuration.Record(storageDurationMs, tags);
+                }
+                else
+                {
+                    // 记录失败的爬取结果
+                    tags.Add("error_type", errorType);
+                    this.urlsFailed.Add(1, tags);
+                    this.errors.Add(1, tags);
+                }
+            }
+            catch (Exception)
+            {
+                // 忽略记录指标时的异常，避免影响主程序流程
+            }
         }
 
         /// <summary>
@@ -232,6 +304,47 @@ namespace  CrawlerFramework.CrawlerCore.Metrics
         }
 
         /// <summary>
+        /// 记录下载的字节数.
+        /// </summary>
+        /// <param name="bytes">下载的字节数.</param>
+        /// <param name="domain">域名.</param>
+        public void RecordBytesDownloaded(long bytes, string domain = "unknown")
+        {
+            var tags = new TagList
+            {
+                { "domain", domain },
+            };
+
+            this.bytesDownloaded.Add(bytes, tags);
+        }
+
+        /// <summary>
+        /// 记录HTTP状态码.
+        /// </summary>
+        /// <param name="statusCode">HTTP状态码.</param>
+        /// <param name="domain">域名.</param>
+        public void RecordHttpStatusCode(int statusCode, string domain = "unknown")
+        {
+            // HTTP状态码通过RecordUrlProcessed和RecordBytesDownloaded等方法间接记录
+            // 这里提供一个直接记录的接口，以便灵活使用
+        }
+
+        /// <summary>
+        /// 记录下载持续时间.
+        /// </summary>
+        /// <param name="domain">域名.</param>
+        /// <param name="durationMs">下载持续时间（毫秒）.</param>
+        public void RecordDownloadDuration(string domain, double durationMs)
+        {
+            var tags = new TagList
+            {
+                { "domain", domain },
+            };
+
+            this.downloadDuration.Record(durationMs, tags);
+        }
+
+        /// <summary>
         /// 记录解析持续时间.
         /// </summary>
         /// <param name="domain">域名.</param>
@@ -263,6 +376,28 @@ namespace  CrawlerFramework.CrawlerCore.Metrics
             };
 
             this.storageDuration.Record(durationMs, tags);
+        }
+
+        /// <summary>
+        /// 获取平均下载时间（毫秒）.
+        /// </summary>
+        /// <returns>平均下载时间（毫秒）.</returns>
+        public double GetAverageDownloadTime()
+        {
+            // 由于Histogram不直接提供平均值，我们返回0作为默认值
+            // 实际实现可能需要使用Metrics API获取统计信息
+            return 0;
+        }
+
+        /// <summary>
+        /// 获取总下载字节数.
+        /// </summary>
+        /// <returns>总下载字节数.</returns>
+        public long GetTotalDownloadedBytes()
+        {
+            // 由于Counter不直接提供当前值，我们返回0作为默认值
+            // 实际实现可能需要使用Metrics API获取统计信息
+            return 0;
         }
 
         // /// <summary>

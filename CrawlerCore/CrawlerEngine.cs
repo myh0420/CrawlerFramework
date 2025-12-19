@@ -5,18 +5,21 @@
 namespace CrawlerFramework.CrawlerCore;
 
 using System.IO;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using CrawlerCore.AntiBot;
+using CrawlerCore.ErrorHandling;
 using CrawlerCore.Metrics;
 using CrawlerCore.Plugins;
 using CrawlerCore.Retry;
 using CrawlerCore.Robots;
-using  CrawlerFramework.CrawlerEntity.Configuration;
-using  CrawlerFramework.CrawlerEntity.Enums;
-using  CrawlerFramework.CrawlerEntity.Events;
-using  CrawlerFramework.CrawlerEntity.Models;
+using CrawlerFramework.CrawlerEntity.Configuration;
+using CrawlerFramework.CrawlerEntity.Enums;
+using CrawlerFramework.CrawlerEntity.Events;
+using CrawlerFramework.CrawlerEntity.Models;
 using CrawlerFramework.CrawlerInterFaces.Interfaces;
 using Microsoft.Extensions.Logging;
+using CrawlerFramework.CrawlerCore.Exceptions;
 
 /// <summary>
 /// 爬虫引擎，负责协调和管理整个爬取任务的执行流程。.
@@ -82,7 +85,7 @@ public class CrawlerEngine : IDisposable
     /// <summary>
     /// 暂停信号量，用于控制爬虫暂停和恢复.
     /// </summary>
-    private readonly SemaphoreSlim pauseSemaphore = new(1, 1);
+    private readonly SemaphoreSlim pauseSemaphore = new (1, 1);
 
     /// <summary>
     /// 自适应线程池配置，用于动态调整工作线程数量.
@@ -122,7 +125,7 @@ public class CrawlerEngine : IDisposable
     /// <summary>
     /// 用于保护_workerTasks的锁.
     /// </summary>
-    private readonly Lock workerTasksLock = new();
+    private readonly Lock workerTasksLock = new ();
 
     // 通过构造函数注入的服务
 
@@ -137,6 +140,11 @@ public class CrawlerEngine : IDisposable
     private readonly AdaptiveRetryStrategy? retryStrategy;
 
     /// <summary>
+    /// 错误处理服务.
+    /// </summary>
+    private readonly IErrorHandlingService? errorHandlingService;
+
+    /// <summary>
     /// Robots.txt解析器.
     /// </summary>
     private readonly RobotsTxtParser? robotsTxtParser;
@@ -144,7 +152,7 @@ public class CrawlerEngine : IDisposable
     /// <summary>
     /// 指标服务.
     /// </summary>
-    private readonly CrawlerMetrics? metrics;
+    private readonly ICrawlerMetrics? metrics;
 
     /// <summary>
     /// 插件加载器.
@@ -152,51 +160,29 @@ public class CrawlerEngine : IDisposable
     private readonly IPluginLoader? pluginLoader;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CrawlerEngine"/> class.
-    /// 初始化 <see cref="CrawlerEngine"/> 类的新实例.
+    /// 按类型分类的已加载插件字典.
     /// </summary>
-    /// <param name="scheduler">任务调度器，负责管理爬取请求队列和优先级.</param>
-    /// <param name="downloader">下载器，负责从网络获取网页内容.</param>
-    /// <param name="parser">解析器，负责解析下载的内容并提取信息.</param>
-    /// <param name="storage">存储提供器，负责存储爬取结果和元数据.</param>
-    /// <param name="logger">日志记录器，用于记录运行时信息和错误.</param>
-    /// <param name="metadataStore">元数据存储，用于存储爬取任务的元数据（可选）.</param>
-    /// <param name="antiBotService">反机器人服务，用于检测和应对反爬机制（可选）.</param>
-    /// <param name="retryStrategy">重试策略，用于处理下载失败的情况（可选）.</param>
-    /// <param name="robotsTxtParser">Robots.txt解析器，用于遵守网站的爬取规则（可选）.</param>
-    /// <param name="metrics">指标服务，用于收集和报告爬取性能数据（可选）.</param>
-    /// <param name="pluginLoader">插件加载器，用于加载和管理爬虫插件（可选）.</param>
-    /// <param name="enableAutoStop">是否启用自动停止功能，当任务队列为空时自动停止（默认：true）.</param>
-    /// <param name="autoStopTimeout">自动停止超时时间，当任务队列为空超过此时间时自动停止（默认：30秒）.</param>
-    public CrawlerEngine(
-        IScheduler scheduler,
-        IDownloader downloader,
-        IParser parser,
-        IStorageProvider storage,
-        ILogger<CrawlerEngine> logger,
-        IMetadataStore? metadataStore = null,
-        AntiBotDetectionService? antiBotService = null,
-        AdaptiveRetryStrategy? retryStrategy = null,
-        RobotsTxtParser? robotsTxtParser = null,
-        CrawlerMetrics? metrics = null,
-        IPluginLoader? pluginLoader = null,
-        bool enableAutoStop = true,
-        TimeSpan? autoStopTimeout = null)
-    {
-        this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler), "任务调度器参数不能为空");
-        this.downloader = downloader ?? throw new ArgumentNullException(nameof(downloader), "下载器参数不能为空");
-        this.parser = parser ?? throw new ArgumentNullException(nameof(parser), "解析器参数不能为空");
-        this.storage = storage ?? throw new ArgumentNullException(nameof(storage), "存储提供器参数不能为空");
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
-        this.metadataStore = metadataStore;
-        this.antiBotService = antiBotService;
-        this.retryStrategy = retryStrategy;
-        this.robotsTxtParser = robotsTxtParser;
-        this.metrics = metrics;
-        this.pluginLoader = pluginLoader;
-        this.enableAutoStop = enableAutoStop;
-        this.autoStopTimeout = autoStopTimeout ?? TimeSpan.FromSeconds(30);
-    }
+    private readonly Dictionary<PluginType, List<IPlugin>> pluginsByType = [];
+
+    /// <summary>
+    /// 插件实例缓存，用于复用插件实例而非每次重新创建.
+    /// </summary>
+    private readonly Dictionary<Type, ICrawlerComponent> pluginInstanceCache = [];
+
+    /// <summary>
+    /// 统计信息更新间隔（毫秒）.
+    /// </summary>
+    private readonly int statisticsUpdateIntervalMs = 30000; // 默认30秒
+
+    /// <summary>
+    /// 保护统计信息的锁.
+    /// </summary>
+    private readonly Lock statisticsLock = new ();
+
+    /// <summary>
+    /// 当前使用的爬取配置.
+    /// </summary>
+    private AdvancedCrawlConfiguration? currentConfig;
 
     /// <summary>
     /// 需要移除的工作线程数.
@@ -239,9 +225,69 @@ public class CrawlerEngine : IDisposable
     private Task? threadMonitoringTask;
 
     /// <summary>
+    /// 统计信息更新任务.
+    /// </summary>
+    private Task? statisticsUpdateTask;
+
+    /// <summary>
+    /// 当前爬取统计信息.
+    /// </summary>
+    private CrawlStatistics? currentStatistics;
+
+    /// <summary>
     /// 释放所有资源.
     /// </summary>
     private bool disposed = false;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CrawlerEngine"/> class.
+    /// 初始化 <see cref="CrawlerEngine"/> 类的新实例.
+    /// </summary>
+    /// <param name="scheduler">任务调度器，负责管理爬取请求队列和优先级.</param>
+    /// <param name="downloader">下载器，负责从网络获取网页内容.</param>
+    /// <param name="parser">解析器，负责解析下载的内容并提取信息.</param>
+    /// <param name="storage">存储提供器，负责存储爬取结果和元数据.</param>
+    /// <param name="logger">日志记录器，用于记录运行时信息和错误.</param>
+    /// <param name="metadataStore">元数据存储，用于存储爬取任务的元数据（可选）.</param>
+    /// <param name="antiBotService">反机器人服务，用于检测和应对反爬机制（可选）.</param>
+    /// <param name="retryStrategy">重试策略，用于处理下载失败的情况（可选）.</param>
+    /// <param name="errorHandlingService">错误处理服务，用于统一处理各种错误情况（可选）.</param>
+    /// <param name="robotsTxtParser">Robots.txt解析器，用于遵守网站的爬取规则（可选）.</param>
+    /// <param name="metrics">指标服务，用于收集和报告爬取性能数据（可选）.</param>
+    /// <param name="pluginLoader">插件加载器，用于加载和管理爬虫插件（可选）.</param>
+    /// <param name="enableAutoStop">是否启用自动停止功能，当任务队列为空时自动停止（默认：true）.</param>
+    /// <param name="autoStopTimeout">自动停止超时时间，当任务队列为空超过此时间时自动停止（默认：30秒）.</param>
+    public CrawlerEngine(
+        IScheduler scheduler,
+        IDownloader downloader,
+        IParser parser,
+        IStorageProvider storage,
+        ILogger<CrawlerEngine> logger,
+        IMetadataStore? metadataStore = null,
+        AntiBotDetectionService? antiBotService = null,
+        AdaptiveRetryStrategy? retryStrategy = null,
+        IErrorHandlingService? errorHandlingService = null,
+        RobotsTxtParser? robotsTxtParser = null,
+        ICrawlerMetrics? metrics = null,
+        IPluginLoader? pluginLoader = null,
+        bool enableAutoStop = true,
+        TimeSpan? autoStopTimeout = null)
+    {
+        this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler), "任务调度器参数不能为空");
+        this.downloader = downloader ?? throw new ArgumentNullException(nameof(downloader), "下载器参数不能为空");
+        this.parser = parser ?? throw new ArgumentNullException(nameof(parser), "解析器参数不能为空");
+        this.storage = storage ?? throw new ArgumentNullException(nameof(storage), "存储提供器参数不能为空");
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+        this.metadataStore = metadataStore;
+        this.antiBotService = antiBotService;
+        this.retryStrategy = retryStrategy;
+        this.errorHandlingService = errorHandlingService;
+        this.robotsTxtParser = robotsTxtParser;
+        this.metrics = metrics;
+        this.pluginLoader = pluginLoader;
+        this.enableAutoStop = enableAutoStop;
+        this.autoStopTimeout = autoStopTimeout ?? TimeSpan.FromSeconds(30);
+    }
 
     // 事件定义
 
@@ -319,7 +365,43 @@ public class CrawlerEngine : IDisposable
     /// <returns>指标服务实例.</returns>
     public CrawlerMetrics? GetMetrics()
     {
-        return this.metrics;
+        return (CrawlerMetrics?)this.metrics;
+    }
+
+    /// <summary>
+    /// 根据插件类型获取已加载的插件列表.
+    /// </summary>
+    /// <param name="pluginType">插件类型.</param>
+    /// <returns>指定类型的插件列表.</returns>
+    private List<IPlugin> GetPluginsByType(PluginType pluginType)
+    {
+        if (this.pluginsByType.TryGetValue(pluginType, out var plugins) && plugins != null)
+        {
+            return plugins;
+        }
+
+        return [];
+    }
+
+    /// <summary>
+    /// 获取或创建插件实例，实现插件实例复用.
+    /// </summary>
+    /// <typeparam name="T">插件接口类型.</typeparam>
+    /// <param name="plugin">插件元数据.</param>
+    /// <returns>插件实例.</returns>
+    private async Task<T> GetOrCreatePluginInstanceAsync<T>(IPlugin plugin)
+        where T : class, ICrawlerComponent
+    {
+        if (!this.pluginInstanceCache.TryGetValue(plugin.EntryPointType, out var instance))
+        {
+            // 如果缓存中没有实例，创建并初始化一个新实例
+            instance = (ICrawlerComponent)Activator.CreateInstance(plugin.EntryPointType) !;
+            await instance.InitializeAsync();
+            this.pluginInstanceCache[plugin.EntryPointType] = instance;
+            this.logger.LogInformation("Created and initialized plugin instance for '{Name}'", plugin.PluginName);
+        }
+
+        return (T)instance;
     }
 
     /// <summary>
@@ -357,10 +439,10 @@ public class CrawlerEngine : IDisposable
             Status = this.currentStatus,
             JobId = this.currentJobId ?? string.Empty,
             StartTime = this.startTime,
-            TotalUrlsDiscovered = 0, // 需要从实际数据中获取
+            TotalUrlsDiscovered = this.scheduler.QueuedCount + this.scheduler.ProcessedCount, // 从调度器获取实际值
             TotalUrlsProcessed = this.scheduler.ProcessedCount,
-            TotalErrors = 0, // 需要从实际数据中获取
-            Configuration = new { },
+            TotalErrors = this.scheduler.ErrorCount, // 从调度器获取错误计数
+            Configuration = this.currentConfig ?? new AdvancedCrawlConfiguration(),
         };
         return Task.FromResult(state);
     }
@@ -406,6 +488,7 @@ public class CrawlerEngine : IDisposable
     public async Task StartAsync(AdvancedCrawlConfiguration config, string? jobId = null)
     {
         ArgumentNullException.ThrowIfNull(config);
+        this.currentConfig = config;
 
         // 使用配置中的并发任务数，或默认值
         int workerCount = config.MaxConcurrentTasks > 0 ? config.MaxConcurrentTasks : 5;
@@ -451,6 +534,10 @@ public class CrawlerEngine : IDisposable
 
             // 启动线程池监控任务
             this.threadMonitoringTask = Task.Run(() => this.MonitorAndAdjustThreadPoolAsync(this.cancellationTokenSource.Token));
+
+            // 初始化统计信息并启动更新任务
+            this.currentStatistics = new CrawlStatistics();
+            this.statisticsUpdateTask = Task.Run(() => this.UpdateStatisticsPeriodicallyAsync(this.cancellationTokenSource.Token));
 
             this.logger.LogInformation("Crawler started with {WorkerCount} workers. Job ID: {JobId}", workerCount, this.currentJobId);
         }
@@ -515,6 +602,106 @@ public class CrawlerEngine : IDisposable
             this.cancellationTokenSource?.Dispose();
             this.cancellationTokenSource = null;
             this.logger.LogInformation("Crawler stopped");
+        }
+    }
+
+    /// <summary>
+    /// 定期更新统计信息.
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌，用于请求停止任务.</param>
+    /// <returns>任务完成时的任务.</returns>
+    private async Task UpdateStatisticsPeriodicallyAsync(CancellationToken cancellationToken)
+    {
+        this.logger.LogInformation("Statistics update task started");
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(this.statisticsUpdateIntervalMs, cancellationToken);
+
+                try
+                {
+                    await this.UpdateStatisticsAsync();
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to update statistics");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            this.logger.LogInformation("Statistics update task canceled");
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Error in statistics update task");
+        }
+    }
+
+    /// <summary>
+    /// 更新统计信息.
+    /// </summary>
+    /// <returns>任务完成时的任务.</returns>
+    private async Task UpdateStatisticsAsync()
+    {
+        lock (this.statisticsLock)
+        {
+            this.currentStatistics ??= new CrawlStatistics();
+
+            // 更新全局统计信息
+            this.currentStatistics.TotalUrlsDiscovered = this.scheduler.QueuedCount + this.scheduler.ProcessedCount;
+            this.currentStatistics.TotalUrlsProcessed = this.scheduler.ProcessedCount;
+            this.currentStatistics.ErrorCount = this.scheduler.ErrorCount;
+            this.currentStatistics.SuccessCount = this.scheduler.ProcessedCount - this.scheduler.ErrorCount;
+            this.currentStatistics.LastUpdateTime = DateTime.UtcNow;
+        }
+
+        // 持久化统计信息
+        try
+        {
+            await this.PersistStatisticsAsync();
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to persist statistics");
+        }
+    }
+
+    /// <summary>
+    /// 持久化统计信息.
+    /// </summary>
+    /// <returns>任务完成时的任务.</returns>
+    private async Task PersistStatisticsAsync()
+    {
+        lock (this.statisticsLock)
+        {
+            if (this.currentStatistics == null)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            // 保存到存储提供器
+            await this.storage.SaveStatisticsAsync(this.currentStatistics);
+
+            // 同时更新元数据存储中的爬取状态
+            if (this.metadataStore != null)
+            {
+                var crawlState = await this.GetCurrentCrawlStateAsync();
+                crawlState.Statistics = this.currentStatistics;
+                await this.metadataStore.SaveCrawlStateAsync(crawlState);
+            }
+
+            this.logger.LogDebug("Statistics persisted successfully");
+        }
+        catch (NotImplementedException)
+        {
+            // 如果存储提供器不支持保存统计信息，忽略此错误
+            this.logger.LogDebug("Storage provider does not support saving statistics");
         }
     }
 
@@ -730,6 +917,7 @@ public class CrawlerEngine : IDisposable
             if (crawlConfig != null && request.Depth > crawlConfig.MaxDepth)
             {
                 this.logger.LogDebug("URL {Url} exceeds max depth ({Depth})", request.Url, request.Depth);
+                this.metrics?.RecordUrlFailed(request.Url);
                 return;
             }
 
@@ -740,6 +928,7 @@ public class CrawlerEngine : IDisposable
             if (downloadResult == null)
             {
                 this.logger.LogWarning("Failed to download {Url}", request.Url);
+                this.metrics?.RecordUrlFailed(request.Url);
                 return;
             }
 
@@ -759,11 +948,43 @@ public class CrawlerEngine : IDisposable
             if (parseResult == null)
             {
                 this.logger.LogWarning("Failed to parse {Url}", request.Url);
+                this.metrics?.RecordUrlFailed(request.Url);
                 return;
             }
 
             // 存储阶段
+            var storageStartTime = Stopwatch.GetTimestamp();
             await this.StoreResultAsync(parseResult, request);
+            var storageDurationMs = (double)(Stopwatch.GetTimestamp() - storageStartTime) * 1000 / Stopwatch.Frequency;
+
+            // 记录成功处理的URL和各个阶段的指标
+            if (this.metrics != null)
+            {
+                try
+                {
+                    var domain = new Uri(request.Url).Host;
+                    var contentLength = downloadResult.Content?.Length ?? 0;
+                    var statusCode = downloadResult.StatusCode;
+
+                    this.metrics.RecordUrlProcessed(
+                        domain,
+                        statusCode,
+                        contentLength,
+                        downloadResult.DownloadTimeMs,
+                        parseResult.ParseTimeMs,
+                        storageDurationMs);
+
+                    // 记录下载的字节数
+                    this.metrics.RecordBytesDownloaded(contentLength);
+
+                    // 记录HTTP状态码
+                    this.metrics.RecordHttpStatusCode(statusCode, domain);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to record metrics for {Url}", request.Url);
+                }
+            }
 
             // 批量添加发现的链接
             if (parseResult.Links?.Count > 0 && crawlConfig != null && request.Depth < crawlConfig.MaxDepth)
@@ -805,10 +1026,25 @@ public class CrawlerEngine : IDisposable
         catch (OperationCanceledException)
         {
             this.logger.LogDebug("Request processing canceled for {Url}", request.Url);
+            this.metrics?.RecordUrlFailed(request.Url);
         }
         catch (Exception ex)
         {
             this.logger.LogError(ex, "Error processing {Url}", request.Url);
+
+            // 记录错误
+            try
+            {
+                var domain = new Uri(request.Url).Host;
+                this.metrics?.RecordError(domain, ex.GetType().Name, ex.Message);
+            }
+            catch (UriFormatException)
+            {
+                // 如果URL格式无效，使用"unknown"作为域名
+                this.metrics?.RecordError("unknown", ex.GetType().Name, ex.Message);
+            }
+
+            this.metrics?.RecordUrlFailed(request.Url);
 
             // 触发爬取错误事件
             this.OnCrawlError?.Invoke(this, new CrawlErrorEventArgs
@@ -833,43 +1069,164 @@ public class CrawlerEngine : IDisposable
     {
         try
         {
+            string? domain = null;
+            try
+            {
+                domain = new Uri(request.Url).Host;
+            }
+            catch (UriFormatException)
+            {
+                domain = "invalid_url";
+            }
+
             // 检查robots.txt规则
             if (this.robotsTxtParser != null && !await this.robotsTxtParser.IsAllowedAsync(request.Url))
             {
+                var robotsEx = new RobotsTxtException(request.Url, $"URL {request.Url} is disallowed by robots.txt");
                 this.logger.LogDebug("URL {Url} is disallowed by robots.txt", request.Url);
-                return null;
+
+                // 使用错误处理服务处理robots.txt禁止访问的情况
+                if (this.errorHandlingService != null)
+                {
+                    return this.errorHandlingService.HandleDownloadException(request.Url, robotsEx);
+                }
+                else
+                {
+                    // 回退处理
+                    this.metrics?.RecordUrlFailed(domain, "robots_txt_disallowed");
+                    return null;
+                }
             }
 
             // 防机器人检查
             if (this.antiBotService != null && !this.antiBotService.ShouldProcess(request.Url))
             {
                 this.logger.LogDebug("URL {Url} is skipped due to anti-bot rules", request.Url);
+                this.metrics?.RecordUrlFailed(domain, "anti_bot_skipped");
                 return null;
             }
 
-            // 下载内容
-            return await this.downloader.DownloadAsync(request);
+            // 获取Downloader类型的插件，并按优先级排序（降序）
+            var downloaderPlugins = this.GetPluginsByType(PluginType.Downloader)
+                .Where(p => p.EntryPointType.IsAssignableTo(typeof(IDownloader)))
+                .OrderByDescending(p => p.Priority)
+                .ToList();
+
+            DownloadResult? downloadResult = null;
+
+            // 如果有下载器插件
+            if (downloaderPlugins.Count != 0)
+            {
+                // 实现简单的链式调用：使用优先级最高的插件，如果失败则回退到下一个插件
+                foreach (var plugin in downloaderPlugins)
+                {
+                    try
+                    {
+                        var pluginDownloader = await this.GetOrCreatePluginInstanceAsync<IDownloader>(plugin);
+                        this.logger.LogInformation("Using plugin downloader '{Name}' (priority: {Priority}) for {Url}", plugin.PluginName, plugin.Priority, request.Url);
+                        downloadResult = await pluginDownloader.DownloadAsync(request);
+
+                        // 如果下载成功，跳出循环
+                        if (downloadResult != null && !string.IsNullOrEmpty(downloadResult.Content))
+                        {
+                            break;
+                        }
+
+                        this.logger.LogWarning("Plugin downloader '{Name}' returned empty content for {Url}", plugin.PluginName, request.Url);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.logger.LogError(ex, "Plugin downloader '{Name}' failed for {Url}", plugin.PluginName, request.Url);
+
+                        // 继续尝试下一个插件
+                        continue;
+                    }
+                }
+
+                // 如果所有插件都失败，使用默认下载器
+                if (downloadResult == null || string.IsNullOrEmpty(downloadResult.Content))
+                {
+                    this.logger.LogInformation("All plugin downloaders failed, using default downloader for {Url}", request.Url);
+                    downloadResult = await this.downloader.DownloadAsync(request);
+                }
+            }
+            else
+            {
+                // 否则使用默认下载器
+                downloadResult = await this.downloader.DownloadAsync(request);
+            }
+
+            // 记录下载结果指标
+            if (downloadResult != null && this.metrics != null)
+            {
+                try
+                {
+                    var bytesDownloaded = downloadResult.Content?.Length ?? 0;
+                    var statusCode = downloadResult.StatusCode;
+
+                    // 记录下载字节数
+                    this.metrics.RecordBytesDownloaded(bytesDownloaded, domain);
+
+                    // 记录HTTP状态码
+                    this.metrics.RecordHttpStatusCode(statusCode, domain);
+
+                    // 记录下载持续时间
+                    this.metrics.RecordDownloadDuration(domain, downloadResult.DownloadTimeMs);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to record download metrics for {Url}", request.Url);
+                }
+            }
+
+            return downloadResult;
         }
         catch (Exception ex)
         {
-            this.logger.LogError(ex, "Download error for {Url}", request.Url);
+            // 使用错误处理服务处理下载异常
+            DownloadResult? downloadResult = null;
+            if (this.errorHandlingService != null)
+            {
+                downloadResult = this.errorHandlingService.HandleDownloadException(request.Url, ex);
+            }
+            else
+            {
+                // 回退到传统日志记录
+                this.logger.LogError(ex, "Download error for {Url}", request.Url);
+            }
 
-            // 重试逻辑
+            // 记录下载失败指标
             try
             {
-                string? host = new Uri(request.Url).Host;
+                string? host = null;
+                try
+                {
+                    host = new Uri(request.Url).Host;
+                }
+                catch (UriFormatException)
+                {
+                    host = "invalid_url";
+                }
+
+                this.metrics?.RecordUrlFailed(host, "download_exception");
+                this.metrics?.RecordError(host, ex.GetType().Name);
+
+                // 重试逻辑
                 if (!string.IsNullOrEmpty(host) && this.retryStrategy != null && await this.retryStrategy.ShouldRetryAsync(host, ex, request.RetryCount))
                 {
                     request.RetryCount++;
                     await this.scheduler.AddUrlAsync(request);
                     this.logger.LogInformation("Retrying {Url} ({RetryCount})", request.Url, request.RetryCount);
+
+                    // 记录重试尝试
+                    this.metrics?.RecordRetryAttempt(host, ex.GetType().Name);
                 }
             }
             catch (UriFormatException)
             { /* URL格式错误，不重试 */
             }
 
-            return null;
+            return downloadResult;
         }
     }
 
@@ -884,14 +1241,135 @@ public class CrawlerEngine : IDisposable
     /// </remarks>
     private async Task<ParseResult?> ParseContentAsync(DownloadResult downloadResult, CrawlRequest request)
     {
+        var stopwatch = Stopwatch.StartNew();
         try
         {
-            return await this.parser.ParseAsync(downloadResult);
+            // 获取Parser类型的插件，并按优先级排序（降序）
+            var parserPlugins = this.GetPluginsByType(PluginType.Parser)
+                .Where(p => p.EntryPointType.IsAssignableTo(typeof(IParser)))
+                .OrderByDescending(p => p.Priority)
+                .ToList();
+
+            ParseResult? parseResult = null;
+
+            // 如果有解析器插件
+            if (parserPlugins.Count != 0)
+            {
+                // 实现简单的链式调用：使用优先级最高的插件，如果失败则回退到下一个插件
+                foreach (var plugin in parserPlugins)
+                {
+                    try
+                    {
+                        var pluginParser = await this.GetOrCreatePluginInstanceAsync<IParser>(plugin);
+                        this.logger.LogInformation("Using plugin parser '{Name}' (priority: {Priority}) for {Url}", plugin.PluginName, plugin.Priority, downloadResult.Url);
+                        parseResult = await pluginParser.ParseAsync(downloadResult);
+
+                        // 如果解析成功，跳出循环
+                        if (parseResult != null)
+                        {
+                            break;
+                        }
+
+                        this.logger.LogWarning("Plugin parser '{Name}' returned null result for {Url}", plugin.PluginName, downloadResult.Url);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.logger.LogError(ex, "Plugin parser '{Name}' failed for {Url}", plugin.PluginName, downloadResult.Url);
+
+                        // 继续尝试下一个插件
+                        continue;
+                    }
+                }
+
+                // 如果所有插件都失败，使用默认解析器
+                if (parseResult == null)
+                {
+                    this.logger.LogInformation("All plugin parsers failed, using default parser for {Url}", downloadResult.Url);
+                    parseResult = await this.parser.ParseAsync(downloadResult);
+                }
+            }
+            else
+            {
+                // 否则使用默认解析器
+                parseResult = await this.parser.ParseAsync(downloadResult);
+            }
+
+            // 记录解析持续时间
+            stopwatch.Stop();
+            if (this.metrics != null)
+            {
+                try
+                {
+                    string? domain = null;
+                    try
+                    {
+                        domain = new Uri(request.Url).Host;
+                    }
+                    catch (UriFormatException)
+                    {
+                        domain = "invalid_url";
+                    }
+
+                    this.metrics.RecordParseDuration(domain, stopwatch.Elapsed.TotalMilliseconds, downloadResult.ContentType ?? "html");
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to record parse metrics for {Url}", request.Url);
+                }
+            }
+
+            return parseResult;
         }
         catch (Exception ex)
         {
-            this.logger.LogError(ex, "Parse error for {Url}", request.Url);
-            return null;
+            // 记录解析失败指标
+            stopwatch.Stop();
+
+            // 使用错误处理服务处理解析异常
+            ParseResult? parseResult = null;
+            if (this.errorHandlingService != null)
+            {
+                parseResult = this.errorHandlingService.HandleParseException(request.Url, ex);
+            }
+            else
+            {
+                // 回退到传统日志记录
+                this.logger.LogError(ex, "Parse error for {Url}", request.Url);
+            }
+
+            try
+            {
+                string? domain = null;
+                try
+                {
+                    domain = new Uri(request.Url).Host;
+                }
+                catch (UriFormatException)
+                {
+                    domain = "invalid_url";
+                }
+
+                this.metrics?.RecordUrlFailed(domain, "parse_exception");
+                this.metrics?.RecordError(domain, ex.GetType().Name);
+                this.metrics?.RecordParseDuration(domain, stopwatch.Elapsed.TotalMilliseconds, "error");
+
+                // 解析错误重试逻辑
+                if (!string.IsNullOrEmpty(domain) && this.retryStrategy != null && await this.retryStrategy.ShouldRetryAsync(domain, ex, request.RetryCount))
+                {
+                    request.RetryCount++;
+                    await this.scheduler.AddUrlAsync(request);
+                    this.logger.LogInformation("Retrying parsing {Url} ({RetryCount})", request.Url, request.RetryCount);
+
+                    // 记录重试尝试
+                    this.metrics?.RecordRetryAttempt(domain, ex.GetType().Name);
+                }
+            }
+            catch (Exception metricsEx)
+            {
+                this.logger.LogError(metricsEx, "Failed to record parse error metrics for {Url}", request.Url);
+            }
+
+            return parseResult;
         }
     }
 
@@ -906,6 +1384,7 @@ public class CrawlerEngine : IDisposable
     /// </remarks>
     private async Task StoreResultAsync(ParseResult parseResult, CrawlRequest request)
     {
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             var result = new CrawlResult
@@ -914,11 +1393,101 @@ public class CrawlerEngine : IDisposable
                 ParseResult = parseResult,
                 ProcessedAt = DateTime.UtcNow,
             };
-            await this.storage.SaveAsync(result);
+
+            // 获取Storage类型的插件，并按优先级排序（降序）
+            var storagePlugins = this.GetPluginsByType(PluginType.Storage)
+                .Where(p => p.EntryPointType.IsAssignableTo(typeof(IStorageProvider)))
+                .OrderByDescending(p => p.Priority)
+                .ToList();
+
+            bool storageSuccess = false;
+
+            // 如果有存储插件
+            if (storagePlugins.Count != 0)
+            {
+                // 实现简单的链式调用：使用优先级最高的插件，如果失败则回退到下一个插件
+                foreach (var plugin in storagePlugins)
+                {
+                    try
+                    {
+                        var pluginStorage = await this.GetOrCreatePluginInstanceAsync<IStorageProvider>(plugin);
+                        this.logger.LogInformation("Using plugin storage '{Name}' (priority: {Priority}) for {Url}", plugin.PluginName, plugin.Priority, request.Url);
+                        await pluginStorage.SaveAsync(result);
+                        storageSuccess = true;
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        this.logger.LogError(ex, "Plugin storage '{Name}' failed for {Url}", plugin.PluginName, request.Url);
+
+                        // 继续尝试下一个插件
+                        continue;
+                    }
+                }
+
+                // 如果所有插件都失败，使用默认存储提供器
+                if (!storageSuccess)
+                {
+                    this.logger.LogInformation("All plugin storages failed, using default storage for {Url}", request.Url);
+                    await this.storage.SaveAsync(result);
+                }
+            }
+            else
+            {
+                // 否则使用默认存储提供器
+                await this.storage.SaveAsync(result);
+            }
+
+            // 记录存储持续时间
+            stopwatch.Stop();
+            if (this.metrics != null)
+            {
+                try
+                {
+                    string? domain = null;
+                    try
+                    {
+                        domain = new Uri(request.Url).Host;
+                    }
+                    catch (UriFormatException)
+                    {
+                        domain = "invalid_url";
+                    }
+
+                    this.metrics.RecordStorageDuration(domain, stopwatch.Elapsed.TotalMilliseconds, "database");
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to record storage metrics for {Url}", request.Url);
+                }
+            }
         }
         catch (Exception ex)
         {
+            // 记录存储失败指标
+            stopwatch.Stop();
             this.logger.LogError(ex, "Storage error for {Url}", request.Url);
+            try
+            {
+                string? domain = null;
+                try
+                {
+                    domain = new Uri(request.Url).Host;
+                }
+                catch (UriFormatException)
+                {
+                    domain = "invalid_url";
+                }
+
+                this.metrics?.RecordUrlFailed(domain, "storage_exception");
+                this.metrics?.RecordError(domain, ex.GetType().Name);
+                this.metrics?.RecordStorageDuration(domain, stopwatch.Elapsed.TotalMilliseconds, "error");
+            }
+            catch (Exception metricsEx)
+            {
+                this.logger.LogError(metricsEx, "Failed to record storage error metrics for {Url}", request.Url);
+            }
+
             throw; // 存储错误应该被上层捕获并处理
         }
     }
@@ -959,10 +1528,36 @@ public class CrawlerEngine : IDisposable
             // 加载插件
             if (this.pluginLoader != null)
             {
-                // 使用默认插件目录
-                string pluginsDirectory = Path.Combine(AppContext.BaseDirectory, "Plugins");
+                // 使用配置中的插件目录，如果没有配置则使用默认目录
+                string pluginsDirectory = this.currentConfig?.PluginsDirectory ?? Path.Combine(AppContext.BaseDirectory, "Plugins");
                 var loadedPlugins = await this.pluginLoader.LoadPluginsAsync(pluginsDirectory);
-                this.logger.LogInformation("Loaded {PluginCount} plugins", loadedPlugins.Count());
+                this.logger.LogInformation("Loaded {PluginCount} plugins from directory: {PluginsDirectory}", loadedPlugins.Count(), pluginsDirectory);
+
+                // 将插件按类型分类存储
+                foreach (var plugin in loadedPlugins)
+                {
+                    if (!this.pluginsByType.TryGetValue(plugin.PluginType, out List<IPlugin>? value))
+                    {
+                        value = [];
+                        this.pluginsByType[plugin.PluginType] = value;
+                    }
+
+                    value.Add(plugin);
+                    this.logger.LogInformation("Added plugin '{Name}' (v{Version}) of type {Type}", plugin.PluginName, plugin.Version, plugin.PluginType);
+
+                    // 预创建插件实例并初始化，确保生命周期管理完整
+                    try
+                    {
+                        var instance = (ICrawlerComponent)Activator.CreateInstance(plugin.EntryPointType) !;
+                        await instance.InitializeAsync();
+                        this.pluginInstanceCache[plugin.EntryPointType] = instance;
+                        this.logger.LogInformation("Initialized plugin instance for '{Name}'", plugin.PluginName);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.logger.LogError(ex, "Failed to initialize plugin instance for '{Name}'", plugin.PluginName);
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -989,6 +1584,22 @@ public class CrawlerEngine : IDisposable
                 await this.pluginLoader.UnloadAllPluginsAsync();
                 this.logger.LogInformation("Unloaded all plugins");
             }
+
+            // 关闭并清理缓存中的插件实例
+            foreach (var instance in this.pluginInstanceCache.Values)
+            {
+                try
+                {
+                    await instance.ShutdownAsync();
+                    this.logger.LogInformation("Shutdown cached plugin instance of type {Type}", instance.GetType().FullName);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to shutdown cached plugin instance of type {Type}", instance.GetType().FullName);
+                }
+            }
+
+            this.pluginInstanceCache.Clear();
 
             // 关闭各个组件 - 按相反顺序关闭
             if (this.retryStrategy != null)
@@ -1070,8 +1681,8 @@ public class CrawlerEngine : IDisposable
                 // 动态调整线程数
                 if (queueLength > this.queueThresholdHigh && currentWorkerCount < this.maxWorkerCount)
                 {
-                    // 队列堆积，增加线程数
-                    int newWorkersToAdd = Math.Min(5, this.maxWorkerCount - currentWorkerCount);
+                    // 队列堆积，智能增加线程数
+                    int newWorkersToAdd = Math.Min(this.maxWorkerCount - currentWorkerCount, Math.Max(1, queueLength / 10));
                     this.AddWorkerThreads(newWorkersToAdd);
                     this.logger.LogInformation(
                         "Increased worker count to {NewCount} due to high queue length ({QueueLength})",
@@ -1082,7 +1693,7 @@ public class CrawlerEngine : IDisposable
                 {
                     // 队列较空，减少线程数
                     int workersToRemove = Math.Min(2, currentWorkerCount - this.minWorkerCount);
-                    this.RemoveWorkerThreads();
+                    this.RemoveWorkerThreads(workersToRemove);
                     this.logger.LogInformation(
                         "Decreased worker count to {NewCount} due to low queue length ({QueueLength})",
                         currentWorkerCount - workersToRemove,
@@ -1167,16 +1778,15 @@ public class CrawlerEngine : IDisposable
     /// <summary>
     /// 移除工作线程.
     /// </summary>
-    private void RemoveWorkerThreads()
+    /// <param name="count">要移除的线程数.</param>
+    private void RemoveWorkerThreads(int count)
     {
-        int workersToRemove = 2; // 默认移除2个线程
-
         // 计算可以安全移除的线程数
         lock (this.workerTasksLock)
         {
             if (this.workerTasks.Count > this.minWorkerCount)
             {
-                int actualWorkersToRemove = Math.Min(workersToRemove, this.workerTasks.Count - this.minWorkerCount);
+                int actualWorkersToRemove = Math.Min(count, this.workerTasks.Count - this.minWorkerCount);
 
                 if (actualWorkersToRemove > 0)
                 {

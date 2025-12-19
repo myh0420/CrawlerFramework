@@ -88,6 +88,16 @@ public interface IScheduler : ICrawlerComponent
     /// </summary>
     int ProcessedCount { get; }
     /// <summary>
+        /// 处理过程中的错误数量
+        /// </summary>
+        int ErrorCount { get; }
+
+        /// <summary>
+        /// 获取域名统计信息
+        /// </summary>
+        /// <returns>域名统计信息字典</returns>
+        Task<IDictionary<string, DomainStatistics>> GetDomainStatisticsAsync();
+    /// <summary>
     /// 记录域名的下载性能数据
     /// </summary>
     /// <param name="domain">域名</param>

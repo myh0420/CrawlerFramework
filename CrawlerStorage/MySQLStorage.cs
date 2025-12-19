@@ -437,6 +437,53 @@ namespace CrawlerFramework.CrawlerStorage
         }
 
         /// <summary>
+        /// 异步保存爬取统计信息.
+        /// </summary>
+        /// <param name="statistics">爬取统计信息.</param>
+        /// <returns>任务. 完成时表示统计信息已保存.</returns>
+        public async Task SaveStatisticsAsync(CrawlStatistics statistics)
+        {
+            try
+            {
+                // 使用CrawlStates表来存储统计信息，保持与现有架构的一致性
+                var command = new MySqlCommand(
+                    @"INSERT INTO CrawlStates 
+                      (JobId, StartTime, EndTime, TotalUrlsDiscovered, TotalUrlsProcessed, TotalErrors, Statistics, Status, Configuration)
+                      VALUES (@JobId, @StartTime, @EndTime, @TotalUrlsDiscovered, @TotalUrlsProcessed, @TotalErrors, @Statistics, @Status, @Configuration)
+                      ON DUPLICATE KEY UPDATE
+                      StartTime = VALUES(StartTime),
+                      EndTime = VALUES(EndTime),
+                      TotalUrlsDiscovered = VALUES(TotalUrlsDiscovered),
+                      TotalUrlsProcessed = VALUES(TotalUrlsProcessed),
+                      TotalErrors = VALUES(TotalErrors),
+                      Statistics = VALUES(Statistics),
+                      Status = VALUES(Status),
+                      Configuration = VALUES(Configuration)",
+                    this.connection);
+
+                // 设置参数，使用统计信息中的JobId或生成默认值
+                var jobId = string.IsNullOrEmpty(statistics.JobId) ? "default-job" : statistics.JobId;
+                command.Parameters.AddWithValue("@JobId", jobId);
+                command.Parameters.AddWithValue("@StartTime", DateTime.UtcNow);
+                command.Parameters.AddWithValue("@EndTime", DBNull.Value);
+                command.Parameters.AddWithValue("@TotalUrlsDiscovered", statistics.TotalUrlsDiscovered);
+                command.Parameters.AddWithValue("@TotalUrlsProcessed", statistics.TotalUrlsProcessed);
+                command.Parameters.AddWithValue("@TotalErrors", statistics.ErrorCount);
+                command.Parameters.AddWithValue("@Statistics", JsonConvert.SerializeObject(statistics));
+                command.Parameters.AddWithValue("@Status", (int)CrawlerStatus.Running);
+                command.Parameters.AddWithValue("@Configuration", JsonConvert.SerializeObject(new { }));
+
+                await command.ExecuteNonQueryAsync();
+                this.logger.LogDebug("Statistics saved to MySQL for job: {JobId}", jobId);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to save statistics to MySQL");
+                throw;
+            }
+        }
+
+        /// <summary>
         /// 异步保存爬取状态.
         /// </summary>
         /// <param name="state">爬取状态.</param>

@@ -96,6 +96,10 @@ public class PriorityScheduler : IScheduler
     /// </summary>
     public int ProcessedCount => _processedUrls.Count;
     /// <summary>
+    /// 处理过程中的错误数量
+    /// </summary>
+    public int ErrorCount { get; private set; } = 0;
+    /// <summary>
     /// 任务ID前缀
     /// </summary>
     private static string TaskIdPrefix => $"task_{Environment.MachineName}_";
@@ -111,6 +115,8 @@ public class PriorityScheduler : IScheduler
         public long LastDownloadTimeMs { get; set; } = 0;
         public DateTime LastSuccessTime { get; set; } = DateTime.MinValue;
         public DateTime LastErrorTime { get; set; } = DateTime.MinValue;
+        public int TotalRequests { get; set; } = 0;
+        public long TotalBytesDownloaded { get; set; } = 0;
 
         public double AverageDownloadTimeMs => SuccessCount > 0 ? (double)TotalDownloadTimeMs / SuccessCount : 0;
         public double ErrorRate => (SuccessCount + ErrorCount) > 0 ? (double)ErrorCount / (SuccessCount + ErrorCount) : 0;
@@ -133,6 +139,8 @@ public class PriorityScheduler : IScheduler
 
         lock (performanceData)
         {
+            performanceData.TotalRequests++;
+            
             if (isSuccess)
             {
                 performanceData.SuccessCount++;
@@ -143,6 +151,7 @@ public class PriorityScheduler : IScheduler
             else
             {
                 performanceData.ErrorCount++;
+                this.ErrorCount++;
                 performanceData.LastErrorTime = DateTime.UtcNow;
             }
         }
@@ -491,5 +500,38 @@ public class PriorityScheduler : IScheduler
     {
         _logger.LogInformation("PriorityScheduler shutting down. Processed {Count} URLs.", ProcessedCount);
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 获取域名统计信息
+    /// </summary>
+    /// <returns>域名统计信息字典</returns>
+    public async Task<IDictionary<string, DomainStatistics>> GetDomainStatisticsAsync()
+    {
+        var result = new Dictionary<string, DomainStatistics>();
+
+        foreach (var domainPerformance in _domainPerformanceData)
+        {
+            var domain = domainPerformance.Key;
+            var performanceData = domainPerformance.Value;
+
+            lock (performanceData)
+            {
+                var stats = new DomainStatistics
+                {
+                    UrlsDiscovered = 0, // 此数据未在当前实现中跟踪
+                    UrlsProcessed = performanceData.TotalRequests,
+                    SuccessCount = performanceData.SuccessCount,
+                    ErrorCount = performanceData.ErrorCount,
+                    TotalDownloadSize = performanceData.TotalBytesDownloaded,
+                    AverageDownloadTimeMs = performanceData.AverageDownloadTimeMs
+                };
+
+                result.Add(domain, stats);
+            }
+        }
+
+        await Task.CompletedTask;
+        return result;
     }
 }

@@ -8,11 +8,31 @@
 		<RootNamespace>CrawlerFramework.CrawlerMonitor</RootNamespace>
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<StartupObject></StartupObject>
+		<!-- 代码质量 -->
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		
+		<!-- 性能优化 -->
+		<EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		
+		<!-- 部署优化 -->
+		<PublishSingleFile>true</PublishSingleFile>
+		<PublishReadyToRun>true</PublishReadyToRun>
+		<SelfContained>true</SelfContained>
 	</PropertyGroup>
-
+	<PropertyGroup>
+		<NoWarn>
+			SA1010;
+			SA1202;
+			IDE0290;
+		</NoWarn>
+	</PropertyGroup>
+	<!--
 	<ItemGroup>
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
 	</ItemGroup>
+	-->
 	<ItemGroup>
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />

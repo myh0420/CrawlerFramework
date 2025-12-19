@@ -37,6 +37,11 @@ public interface IPlugin : ICrawlerComponent
     /// 插件入口点类型
     /// </summary>
     Type EntryPointType { get; }
+
+    /// <summary>
+    /// 插件优先级（数值越大，优先级越高）
+    /// </summary>
+    int Priority { get; }
 }
 
 /// <summary>

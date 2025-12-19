@@ -52,6 +52,12 @@ public abstract class PluginBase : IPlugin
 
     /// <inheritdoc />
     /// <summary>
+    /// 获取插件优先级（默认优先级为5）.
+    /// </summary>
+    public virtual int Priority => 5;
+
+    /// <inheritdoc />
+    /// <summary>
     /// 异步初始化插件.
     /// </summary>
     /// <returns>表示异步操作的任务.</returns>

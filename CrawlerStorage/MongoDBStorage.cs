@@ -480,6 +480,30 @@ namespace CrawlerFramework.CrawlerStorage
         }
 
         /// <summary>
+        /// 异步保存爬取统计信息.
+        /// </summary>
+        /// <param name="statistics">爬取统计信息.</param>
+        /// <returns>已完成任务.</returns>
+        public async Task SaveStatisticsAsync(CrawlStatistics statistics)
+        {
+            try
+            {
+                var statisticsCollection = this.database.GetCollection<CrawlStatistics>("statistics");
+                
+                // 使用替换或插入操作
+                var filter = Builders<CrawlStatistics>.Filter.Eq(s => s.JobId, statistics.JobId);
+                var options = new ReplaceOptions { IsUpsert = true };
+                
+                await statisticsCollection.ReplaceOneAsync(filter, statistics, options);
+                this.logger.LogDebug("Statistics saved to MongoDB for job: {JobId}", statistics.JobId);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to save statistics to MongoDB");
+            }
+        }
+
+        /// <summary>
         /// 释放资源.
         /// </summary>
         public void Dispose()

@@ -94,6 +94,11 @@ public partial class AdvancedParser : IParser, IPlugin
     public Type EntryPointType => typeof(AdvancedParser);
 
     /// <summary>
+    /// Gets 插件优先级（数值越大，优先级越高）.
+    /// </summary>
+    public int Priority => 10;
+
+    /// <summary>
     /// 异步解析下载结果，提取链接、元数据和内容.
     /// </summary>
     /// <param name="downloadResult">下载结果，包含URL、内容类型和内容.</param>

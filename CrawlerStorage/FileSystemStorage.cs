@@ -360,6 +360,22 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
     /// <returns>统计信息.</returns>
     public async Task<CrawlStatistics> GetStatisticsAsync()
     {
+        // 尝试从文件读取统计信息
+        var statsFile = Path.Combine(this.metadataDirectory, "statistics.json");
+        if (File.Exists(statsFile))
+        {
+            try
+            {
+                var content = await File.ReadAllTextAsync(statsFile);
+                return JsonConvert.DeserializeObject<CrawlStatistics>(content) ?? new CrawlStatistics();
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(ex, "Failed to read statistics from file, recalculating...");
+            }
+        }
+
+        // 如果文件不存在或读取失败，则重新计算统计信息
         var stats = new CrawlStatistics();
 
         try
@@ -824,5 +840,25 @@ public class FileSystemStorage : IStorageProvider, IMetadataStore
         }
 
         this.logger.LogDebug("Copied {FileCount} files from {SourceDir} to {DestinationDir}", files.Length, sourceDir, destinationDir);
+    }
+
+    /// <summary>
+    /// 异步保存爬取统计信息.
+    /// </summary>
+    /// <param name="statistics">爬取统计信息.</param>
+    /// <returns>已完成任务.</returns>
+    public async Task SaveStatisticsAsync(CrawlStatistics statistics)
+    {
+        try
+        {
+            var statsFile = Path.Combine(this.metadataDirectory, "statistics.json");
+            var content = JsonConvert.SerializeObject(statistics, Formatting.Indented, this.jsonSettings);
+            await File.WriteAllTextAsync(statsFile, content);
+            this.logger.LogDebug("Statistics saved to file: {StatsFile}", statsFile);
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to save statistics to file");
+        }
     }
 }

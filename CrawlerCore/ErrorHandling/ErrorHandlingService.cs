@@ -5,10 +5,11 @@
 namespace  CrawlerFramework.CrawlerCore.ErrorHandling
 {
     using System;
+    using System.Security;
     using System.Threading.Tasks;
-    using CrawlerCore.Exceptions;
-    using CrawlerEntity.Enums;
-    using CrawlerEntity.Models;
+    using CrawlerFramework.CrawlerCore.Exceptions;
+    using CrawlerFramework.CrawlerEntity.Enums;
+    using CrawlerFramework.CrawlerEntity.Models;
     using Microsoft.Extensions.Logging;
 
     /// <summary>
@@ -20,6 +21,11 @@ namespace  CrawlerFramework.CrawlerCore.ErrorHandling
         /// 网络错误.
         /// </summary>
         Network,
+
+        /// <summary>
+        /// HTTP状态码错误.
+        /// </summary>
+        HttpStatus,
 
         /// <summary>
         /// 解析错误.
@@ -50,6 +56,31 @@ namespace  CrawlerFramework.CrawlerCore.ErrorHandling
         /// 并发错误.
         /// </summary>
         Concurrency,
+
+        /// <summary>
+        /// URL格式错误.
+        /// </summary>
+        UrlFormat,
+
+        /// <summary>
+        /// 内容类型错误.
+        /// </summary>
+        ContentType,
+
+        /// <summary>
+        /// Robots.txt禁止访问错误.
+        /// </summary>
+        RobotsTxtDisallowed,
+
+        /// <summary>
+        /// 插件错误.
+        /// </summary>
+        Plugin,
+
+        /// <summary>
+        /// 安全错误.
+        /// </summary>
+        Security,
 
         /// <summary>
         /// 其他错误.
@@ -126,6 +157,7 @@ namespace  CrawlerFramework.CrawlerCore.ErrorHandling
         private readonly ILogger<ErrorHandlingService> logger;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="ErrorHandlingService"/> class.
         /// 初始化 <see cref="ErrorHandlingService"/> 类的新实例.
         /// </summary>
         /// <param name="logger">日志记录器实例.</param>
@@ -244,15 +276,23 @@ namespace  CrawlerFramework.CrawlerCore.ErrorHandling
         {
             return ex switch
             {
+                DownloadException downloadEx when downloadEx.StatusCode.HasValue && downloadEx.StatusCode != 500 => ErrorType.HttpStatus,
                 DownloadException => ErrorType.Network,
+                ParseException parseEx when parseEx.Message.Contains("content type", StringComparison.OrdinalIgnoreCase) => ErrorType.ContentType,
                 ParseException => ErrorType.Parse,
                 AntiBotException => ErrorType.AntiBot,
                 StorageException => ErrorType.Storage,
                 ConfigException => ErrorType.Config,
                 TimeoutException => ErrorType.Timeout,
-                HttpRequestException => ErrorType.Network,
                 OperationCanceledException => ErrorType.Concurrency,
                 AggregateException => ErrorType.Concurrency,
+                HttpRequestException httpEx when httpEx.StatusCode.HasValue => ErrorType.HttpStatus,
+                HttpRequestException => ErrorType.Network,
+                UriFormatException => ErrorType.UrlFormat,
+                FormatException => ErrorType.Parse,
+                SecurityException => ErrorType.Security,
+                PluginException => ErrorType.Plugin,
+                RobotsTxtException => ErrorType.RobotsTxtDisallowed,
                 _ => ErrorType.Other,
             };
         }

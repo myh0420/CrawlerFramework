@@ -79,6 +79,12 @@ public class AIAssistedExtractor : IContentExtractor, IPlugin
     /// </summary>
     public Type EntryPointType => typeof(AIAssistedExtractor);
 
+    /// <inheritdoc/>
+    /// <summary>
+    /// 获取插件优先级.
+    /// </summary>
+    public int Priority => 5;
+
     // ICrawlerComponent implementation
 
     /// <inheritdoc/>

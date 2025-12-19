@@ -59,6 +59,13 @@ public interface IStorageProvider : ICrawlerComponent
     Task<CrawlStatistics> GetStatisticsAsync();
 
     /// <summary>
+    /// 异步保存爬取统计信息.
+    /// </summary>
+    /// <param name="statistics">爬取统计信息.</param>
+    /// <returns>已完成任务.</returns>
+    Task SaveStatisticsAsync(CrawlStatistics statistics);
+
+    /// <summary>
     /// 异步清除所有数据.
     /// </summary>
     /// <returns>已完成任务.</returns>

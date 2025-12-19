@@ -30,17 +30,32 @@
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.8.1" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.8.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.8.1" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
 
   </ItemGroup>
-<!--
+
   <PropertyGroup>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
-    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisLevel>9.0</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <WarningLevel>4</WarningLevel>
-    <NoWarn></NoWarn>
+    <NoWarn>
+    SA1010;
+    SA1101;
+    SA1202;
+    SA1025;
+    SA1309;
+    SA1503;
+    SA1629;
+    SA1649;
+    IDE0290;
+    </NoWarn>
   </PropertyGroup>
--->
+
+
   <ItemGroup>
     <ProjectReference Include="..\CrawlerInterFaces\CrawlerInterFaces.csproj" />
     <ProjectReference Include="..\CrawlerEntity\CrawlerEntity.csproj" />
