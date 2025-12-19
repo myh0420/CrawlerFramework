@@ -8,9 +8,9 @@ namespace  CrawlerFramework.CrawlerCore.Health
     using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
-    using CrawlerEntity.Enums;
-    using CrawlerInterFaces.Interfaces;
-    using CrawlerStorage;
+    using CrawlerFramework.CrawlerEntity.Enums;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerStorage;
     using Microsoft.Extensions.Diagnostics.HealthChecks;
 
     /// <summary>
@@ -22,7 +22,7 @@ namespace  CrawlerFramework.CrawlerCore.Health
         private readonly IStorageProvider storageProvider;
 
         /// <summary>
-        /// 初始化 <see cref="CrawlerHealthCheck"/> 类的新实例.
+        /// Initializes a new instance of the <see cref="CrawlerHealthCheck"/> class.
         /// </summary>
         /// <param name="crawlerEngine">爬虫引擎实例.</param>
         /// <param name="storageProvider">存储提供程序实例，可不传，默认为FileSystemStorage.</param>
@@ -60,7 +60,8 @@ namespace  CrawlerFramework.CrawlerCore.Health
                     ? HealthStatus.Healthy
                     : HealthStatus.Degraded;
 
-                if (memoryUsage > 500) // 500MB 阈值
+                // 500MB 阈值
+                if (memoryUsage > 500)
                 {
                     status = HealthStatus.Degraded;
                     checks.Add("High memory usage");

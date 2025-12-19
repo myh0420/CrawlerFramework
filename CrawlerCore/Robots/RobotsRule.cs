@@ -10,7 +10,7 @@ namespace  CrawlerFramework.CrawlerCore.Robots
     using System.Linq;
     using System.Net.Http;
     using System.Threading.Tasks;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.Logging;
 
     /// <summary>

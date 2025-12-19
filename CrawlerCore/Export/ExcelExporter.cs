@@ -24,6 +24,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
         private readonly ILogger<ExcelExporter>? logger;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="ExcelExporter"/> class.
         /// 初始化 <see cref="ExcelExporter"/> 类的新实例.
         /// 设置EPPlus库的许可证上下文为非商业用途.
         /// </summary>
@@ -65,7 +66,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
             try
             {
                 logger?.LogInformation("开始将数据导出为Excel格式，文件路径: {FilePath}", filePath);
-                
+
                 // 创建Excel包
                 using var package = new ExcelPackage();
 
@@ -79,6 +80,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
                 for (int i = 0; i < properties.Length; i++)
                 {
                     worksheet.Cells[1, i + 1].Value = properties[i].Name;
+
                     // 设置表头样式
                     worksheet.Cells[1, i + 1].Style.Font.Bold = true;
                     worksheet.Cells[1, i + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
@@ -94,6 +96,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
                         var value = properties[i].GetValue(item);
                         worksheet.Cells[row, i + 1].Value = value;
                     }
+
                     row++;
 
                     // 每处理1000行刷新一次，减少内存占用

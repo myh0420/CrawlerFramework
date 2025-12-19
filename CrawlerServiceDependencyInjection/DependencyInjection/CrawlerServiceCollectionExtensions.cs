@@ -161,6 +161,8 @@ namespace CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection
             services.TryAddSingleton<DataExportService>();
             services.TryAddSingleton<ICrawlerMetrics, CrawlerMetrics>();
             services.TryAddSingleton<RobotsTxtParser>();
+            
+            // 为IAIHelper注册AIAssistedHelper，并确保使用正确的生命周期
             services.TryAddSingleton<IAIHelper, AIAssistedHelper>();
 
             // AIAssistedExtractor is managed by AdvancedParser, not registered directly
@@ -346,10 +348,14 @@ namespace CrawlerFramework.CrawlerServiceDependencyInjection.DependencyInjection
             // 注册下载器相关服务
             services.TryAddSingleton<ProxyManager>();
             services.TryAddSingleton<RotatingUserAgentService>();
+            
+            // 确保AdvancedCrawlConfiguration已注册
+            services.TryAddSingleton(_ => new AdvancedCrawlConfiguration());
+            
             services.TryAddSingleton<SimpleHttpClientManager>(sp =>
             {
                 var config = sp.GetRequiredService<AdvancedCrawlConfiguration>();
-                return new SimpleHttpClientManager(config.MaxConcurrentTasks);
+                return new SimpleHttpClientManager(new HttpClientManagerOptions { MaxClients = config.MaxConcurrentTasks });
             });
 
             services.TryAddSingleton<IDownloader>(provider =>

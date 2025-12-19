@@ -25,6 +25,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
         private readonly ILogger<CsvExporter>? logger;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="CsvExporter"/> class.
         /// 初始化 <see cref="CsvExporter"/> 类的新实例.
         /// </summary>
         /// <param name="logger">日志记录器实例（可选）.</param>
@@ -63,7 +64,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
             try
             {
                 logger?.LogInformation("开始将数据导出为CSV格式，文件路径: {FilePath}", filePath);
-                
+
                 // 确保目录存在
                 Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? string.Empty);
 

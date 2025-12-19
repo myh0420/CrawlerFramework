@@ -1,11 +1,12 @@
 // <copyright file="AIAssistedHelper.cs" company="PlaceholderCompany">
 // Copyright (c) PlaceholderCompany. All rights reserved.
 // </copyright>
-namespace  CrawlerFramework.CrawlerCore.AI;
+namespace CrawlerFramework.CrawlerCore.AI;
 
 using System;
 using System.Collections.Concurrent;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CrawlerFramework.CrawlerInterFaces.Interfaces;
@@ -15,7 +16,7 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// AI辅助解析器实现类.
 /// </summary>
-public partial class AIAssistedHelper : IAIHelper
+public partial class AIAssistedHelper : IAIHelper, IDisposable
 {
     /// <summary>
     /// 缓存过期时间（毫秒）.
@@ -45,12 +46,17 @@ public partial class AIAssistedHelper : IAIHelper
     /// <summary>
     /// HTML文档缓存.
     /// </summary>
-    private readonly ConcurrentDictionary<string, CacheItem<HtmlDocument>> htmlDocumentCache = new();
+    private readonly ConcurrentDictionary<string, CacheItem<HtmlDocument>> htmlDocumentCache = new ();
 
     /// <summary>
     /// 提取结果缓存.
     /// </summary>
-    private readonly ConcurrentDictionary<string, CacheItem<string>> extractionResultCache = new();
+    private readonly ConcurrentDictionary<string, CacheItem<object>> extractionResultCache = new ();
+
+    /// <summary>
+    /// 是否已释放资源.
+    /// </summary>
+    private bool disposed;
 
     /// <summary>
     /// 是否已初始化.
@@ -58,12 +64,22 @@ public partial class AIAssistedHelper : IAIHelper
     private bool isInitialized;
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="AIAssistedHelper"/> class.
     /// 初始化 <see cref="AIAssistedHelper"/> 类的新实例.
     /// </summary>
     /// <param name="logger">日志记录器实例.</param>
     public AIAssistedHelper(ILogger<AIAssistedHelper> logger)
     {
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger), "日志记录器参数不能为空");
+    }
+
+    /// <summary>
+    /// Finalizes an instance of the <see cref="AIAssistedHelper"/> class.
+    /// 终结器，确保资源被释放.
+    /// </summary>
+    ~AIAssistedHelper()
+    {
+        Dispose(false);
     }
 
     /// <summary>
@@ -534,6 +550,19 @@ public partial class AIAssistedHelper : IAIHelper
     /// <returns>提取结果或null.</returns>
     private string? GetCachedExtractionResult(string htmlContent, string type, string url = "")
     {
+        return GetCachedExtractionResult<string>(htmlContent, type, url);
+    }
+
+    /// <summary>
+    /// 从缓存获取提取结果（泛型版本）.
+    /// </summary>
+    /// <typeparam name="T">结果类型.</typeparam>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="type">提取类型.</param>
+    /// <param name="url">URL（可选）.</param>
+    /// <returns>提取结果或null.</returns>
+    private T? GetCachedExtractionResult<T>(string htmlContent, string type, string url = "")
+    {
         var key = GenerateCacheKey($"extraction_{type}", htmlContent, url);
         if (this.extractionResultCache.TryGetValue(key, out var cacheItem))
         {
@@ -542,14 +571,25 @@ public partial class AIAssistedHelper : IAIHelper
                 // 如果缓存过期，移除它
                 this.extractionResultCache.TryRemove(key, out _);
                 this.logger.LogDebug("Extraction result cache expired, removed from cache for type: {Type}", type);
-                return null;
+                return default;
             }
 
-            this.logger.LogDebug("Retrieved extraction result from cache for type: {Type}", type);
-            return cacheItem.Value;
+            try
+            {
+                // 统一进行JSON反序列化
+                var jsonString = cacheItem.Value as string ?? string.Empty;
+                var result = JsonSerializer.Deserialize<T>(jsonString);
+                this.logger.LogDebug("Retrieved and deserialized extraction result from cache for type: {Type}", type);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to deserialize cached extraction result for type: {Type}", type);
+                return default;
+            }
         }
 
-        return null;
+        return default;
     }
 
     /// <summary>
@@ -561,10 +601,65 @@ public partial class AIAssistedHelper : IAIHelper
     /// <param name="url">URL（可选）.</param>
     private void CacheExtractionResult(string htmlContent, string type, string result, string url = "")
     {
-        var key = GenerateCacheKey($"extraction_{type}", htmlContent, url);
-        var cacheItem = new CacheItem<string>(result, DateTime.UtcNow.AddMilliseconds(CacheExpirationMs));
-        this.extractionResultCache.TryAdd(key, cacheItem);
-        this.logger.LogDebug("Cached extraction result for type: {Type}", type);
+        CacheExtractionResult(htmlContent, type, (object)result, url);
+    }
+
+    /// <summary>
+    /// 将提取结果存入缓存（泛型版本）.
+    /// </summary>
+    /// <typeparam name="T">结果类型.</typeparam>
+    /// <param name="htmlContent">HTML内容.</param>
+    /// <param name="type">提取类型.</param>
+    /// <param name="result">提取结果.</param>
+    /// <param name="url">URL（可选）.</param>
+    private void CacheExtractionResult<T>(string htmlContent, string type, T result, string url = "")
+    {
+        try
+        {
+            var key = GenerateCacheKey($"extraction_{type}", htmlContent, url);
+            object cacheValue;
+
+            // 统一序列化为JSON
+            var jsonString = JsonSerializer.Serialize(result);
+            cacheValue = jsonString;
+
+            var cacheItem = new CacheItem<object>(cacheValue, DateTime.UtcNow.AddMilliseconds(CacheExpirationMs));
+            this.extractionResultCache.TryAdd(key, cacheItem);
+            this.logger.LogDebug("Cached extraction result for type: {Type}", type);
+        }
+        catch (Exception ex)
+        {
+            this.logger.LogError(ex, "Failed to cache extraction result for type: {Type}", type);
+        }
+    }
+
+    /// <summary>
+    /// 释放资源.
+    /// </summary>
+    /// <param name="disposing">表示是否释放托管资源.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!this.disposed)
+        {
+            if (disposing)
+            {
+                // 清理缓存
+                this.htmlDocumentCache.Clear();
+                this.extractionResultCache.Clear();
+                this.logger.LogInformation("AIAssistedHelper resources disposed successfully");
+            }
+
+            this.disposed = true;
+        }
+    }
+
+    /// <summary>
+    /// 释放资源.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -673,12 +768,11 @@ public partial class AIAssistedHelper : IAIHelper
     /// <returns>提取到的段落列表.</returns>
     private List<string> ExtractParagraphs(string htmlContent, string url = "")
     {
-        // 尝试从缓存获取结果（将列表序列化为JSON字符串存储）
-        var cachedResult = this.GetCachedExtractionResult(htmlContent, "paragraphs", url);
+        // 尝试从缓存获取结果（泛型版本，自动处理JSON反序列化）
+        var cachedResult = this.GetCachedExtractionResult<List<string>>(htmlContent, "paragraphs", url);
         if (cachedResult != null)
         {
-            // 简单的字符串解析，将缓存的结果转换回列表
-            return [.. cachedResult.Split(["|||"], StringSplitOptions.RemoveEmptyEntries)];
+            return cachedResult;
         }
 
         // 获取或创建HTML文档
@@ -695,9 +789,8 @@ public partial class AIAssistedHelper : IAIHelper
             .Where(p => p.Length > 50) // 过滤太短的段落
             .ToList();
 
-        // 将列表序列化为字符串存入缓存
-        var serializedResult = string.Join("|||", paragraphs);
-        this.CacheExtractionResult(htmlContent, "paragraphs", serializedResult, url);
+        // 使用泛型缓存方法，自动处理JSON序列化
+        this.CacheExtractionResult(htmlContent, "paragraphs", paragraphs, url);
 
         return paragraphs;
     }
@@ -710,26 +803,11 @@ public partial class AIAssistedHelper : IAIHelper
     /// <returns>标题等级统计字典，键为标题等级（H1-H6），值为出现次数.</returns>
     private Dictionary<string, int> ExtractHeadings(string htmlContent, string url = "")
     {
-        // 尝试从缓存获取结果（将字典序列化为字符串存储）
-        var cachedResult = this.GetCachedExtractionResult(htmlContent, "headings", url);
+        // 尝试从缓存获取结果（泛型版本，自动处理JSON反序列化）
+        var cachedResult = this.GetCachedExtractionResult<Dictionary<string, int>>(htmlContent, "headings", url);
         if (cachedResult != null)
         {
-            // 简单的字符串解析，将缓存的结果转换回字典
-            var cachedHeadings = new Dictionary<string, int> { { "H1", 0 }, { "H2", 0 }, { "H3", 0 }, { "H4", 0 }, { "H5", 0 }, { "H6", 0 } };
-            var entries = cachedResult.Split(["|||"], StringSplitOptions.RemoveEmptyEntries);
-            foreach (var entry in entries)
-            {
-                var parts = entry.Split([":"], StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 2 && int.TryParse(parts[1], out int count))
-                {
-                    if (cachedHeadings.ContainsKey(parts[0]))
-                    {
-                        cachedHeadings[parts[0]] = count;
-                    }
-                }
-            }
-
-            return cachedHeadings;
+            return cachedResult;
         }
 
         // 获取或创建HTML文档
@@ -747,9 +825,8 @@ public partial class AIAssistedHelper : IAIHelper
             }
         }
 
-        // 将字典序列化为字符串存入缓存
-        var serializedResult = string.Join("|||", headings.Select(kv => $"{kv.Key}:{kv.Value}"));
-        this.CacheExtractionResult(htmlContent, "headings", serializedResult, url);
+        // 使用泛型缓存方法，自动处理JSON序列化
+        this.CacheExtractionResult(htmlContent, "headings", headings, url);
 
         return headings;
     }
@@ -762,11 +839,11 @@ public partial class AIAssistedHelper : IAIHelper
     /// <returns>提取到的链接数量.</returns>
     private int ExtractLinksCount(string htmlContent, string url = "")
     {
-        // 尝试从缓存获取结果
-        var cachedResult = this.GetCachedExtractionResult(htmlContent, "links_count", url);
-        if (cachedResult != null && int.TryParse(cachedResult, out int count))
+        // 尝试从缓存获取结果（泛型版本，自动处理JSON反序列化）
+        var cachedResult = this.GetCachedExtractionResult<int>(htmlContent, "links_count", url);
+        if (cachedResult != default)
         {
-            return count;
+            return cachedResult;
         }
 
         // 获取或创建HTML文档
@@ -775,8 +852,8 @@ public partial class AIAssistedHelper : IAIHelper
         var links = doc.DocumentNode.SelectNodes("//a[@href]");
         var result = links?.Count ?? 0;
 
-        // 存入缓存
-        this.CacheExtractionResult(htmlContent, "links_count", result.ToString(), url);
+        // 使用泛型缓存方法，自动处理JSON序列化
+        this.CacheExtractionResult(htmlContent, "links_count", result, url);
 
         return result;
     }

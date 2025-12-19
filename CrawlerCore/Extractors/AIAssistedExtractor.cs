@@ -121,7 +121,7 @@ public class AIAssistedExtractor : IContentExtractor, IPlugin
             var result = new ExtractionResult
             {
                 Links = [],
-                Data = new()
+                Data = new ()
                 {
                     ["mainContent"] = mainContent,
                     ["structure"] = structure,

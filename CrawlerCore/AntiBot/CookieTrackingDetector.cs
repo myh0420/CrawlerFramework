@@ -24,7 +24,9 @@ public class CookieTrackingDetector : IAntiBotDetector
         if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         {
             var cookieList = cookies.ToList();
-            if (cookieList.Count > 10) // 如果设置了超过10个Cookie，可能存在追踪机制
+
+            // 如果设置了超过10个Cookie，可能存在追踪机制
+            if (cookieList.Count > 10)
             {
                 var trackingCookieCount = cookieList.Count(c =>
                     c.Contains("tracking") ||

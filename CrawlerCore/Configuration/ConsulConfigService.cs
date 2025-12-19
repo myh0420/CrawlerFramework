@@ -36,7 +36,7 @@ namespace  CrawlerFramework.CrawlerCore.Configuration
         /// <summary>
         /// 内部JSON序列化选项，用于将配置对象转换为JSON字符串.
         /// </summary>
-        private readonly JsonSerializerOptions serializerOptions = new()
+        private readonly JsonSerializerOptions serializerOptions = new ()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true,
@@ -45,7 +45,7 @@ namespace  CrawlerFramework.CrawlerCore.Configuration
         /// <summary>
         /// 内部JSON反序列化选项，用于将JSON字符串转换为配置对象.
         /// </summary>
-        private readonly JsonSerializerOptions deserializerOptions = new()
+        private readonly JsonSerializerOptions deserializerOptions = new ()
         {
             PropertyNameCaseInsensitive = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
@@ -81,12 +81,6 @@ namespace  CrawlerFramework.CrawlerCore.Configuration
         /// </summary>
         private bool isMonitoring = false;
 
-        /// <inheritdoc/>
-        /// <summary>
-        /// 配置改变事件，当配置发生变化时触发.
-        /// </summary>
-        public event EventHandler<ConfigChangedEventArgs>? ConfigChanged;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ConsulConfigService"/> class.
         /// 初始化 <see cref="ConsulConfigService"/> 类的新实例.
@@ -100,6 +94,12 @@ namespace  CrawlerFramework.CrawlerCore.Configuration
             this.validator = validator ?? new ConfigValidator();
             this.currentConfig = localConfig;
         }
+
+        /// <inheritdoc/>
+        /// <summary>
+        /// 配置改变事件，当配置发生变化时触发.
+        /// </summary>
+        public event EventHandler<ConfigChangedEventArgs>? ConfigChanged;
 
         /// <summary>
         /// 异步从Consul加载配置.

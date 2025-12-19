@@ -32,6 +32,7 @@ namespace  CrawlerFramework.CrawlerCore.Security
         private readonly byte[] iv;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="AesSecurityService"/> class.
         /// 初始化 <see cref="AesSecurityService"/> 类的新实例。
         /// </summary>
         /// <param name="logger">日志记录器实例（可选）。</param>
@@ -49,10 +50,10 @@ namespace  CrawlerFramework.CrawlerCore.Security
             string defaultIV = "DefaultIV123456789012";
 
             // 确保密钥长度为32字节（256位）
-            this.key = Encoding.UTF8.GetBytes((encryptionKey ?? defaultKey).PadRight(32).Substring(0, 32));
+            this.key = Encoding.UTF8.GetBytes((encryptionKey ?? defaultKey).PadRight(32)[..32]);
 
             // 确保IV长度为16字节（128位）
-            this.iv = Encoding.UTF8.GetBytes((initializationVector ?? defaultIV).PadRight(16).Substring(0, 16));
+            this.iv = Encoding.UTF8.GetBytes((initializationVector ?? defaultIV).PadRight(16)[..16]);
         }
 
         /// <summary>

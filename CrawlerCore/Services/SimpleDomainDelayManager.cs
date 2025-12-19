@@ -7,7 +7,7 @@ namespace  CrawlerFramework.CrawlerCore.Services
     using System;
     using System.Collections.Concurrent;
     using System.Threading.Tasks;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
 
     /// <summary>
     /// 增强的域名延迟管理器，支持动态延迟调整和请求类型感知.

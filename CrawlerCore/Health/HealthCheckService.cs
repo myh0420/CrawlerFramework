@@ -4,15 +4,6 @@
 
 namespace  CrawlerFramework.CrawlerCore.Health
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using CrawlerEntity.Enums;
-    using CrawlerInterFaces.Interfaces;
-    using CrawlerStorage;
-    using Microsoft.Extensions.Diagnostics.HealthChecks;
-
     // /// <summary>
     // /// 爬虫健康检查服务，用于监控爬虫引擎的运行状态、存储和内存使用情况.
     // /// </summary>

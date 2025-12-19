@@ -25,19 +25,9 @@ public class AntiBotEvasionService : IAntiBotEvasionService
     private readonly ILogger<AntiBotEvasionService> logger;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="AntiBotEvasionService"/> class.
-    /// 初始化 <see cref="AntiBotEvasionService"/> 类的新实例.
-    /// </summary>
-    /// <param name="logger">日志记录器实例.如果为null，则使用默认的LoggerFactory创建新实例.</param>
-    public AntiBotEvasionService(ILogger<AntiBotEvasionService>? logger)
-    {
-        this.logger = logger ?? new Logger<AntiBotEvasionService>(new LoggerFactory());
-    }
-
-    /// <summary>
     /// 随机数生成器.
     /// </summary>
-    private readonly Random random = new();
+    private readonly Random random = new ();
 
     /// <summary>
     /// 常用浏览器的User-Agent列表.
@@ -65,6 +55,16 @@ public class AntiBotEvasionService : IAntiBotEvasionService
     /// 表示反爬规避服务是否已初始化.
     /// </summary>
     private bool isInitialized = false;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AntiBotEvasionService"/> class.
+    /// 初始化 <see cref="AntiBotEvasionService"/> 类的新实例.
+    /// </summary>
+    /// <param name="logger">日志记录器实例.如果为null，则使用默认的LoggerFactory创建新实例.</param>
+    public AntiBotEvasionService(ILogger<AntiBotEvasionService>? logger)
+    {
+        this.logger = logger ?? new Logger<AntiBotEvasionService>(new LoggerFactory());
+    }
 
     /// <summary>
     /// 为HTTP请求配置反爬规避策略.

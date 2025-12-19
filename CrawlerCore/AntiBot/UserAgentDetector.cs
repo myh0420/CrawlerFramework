@@ -10,7 +10,7 @@ using CrawlerFramework.CrawlerInterFaces.Interfaces.AntiBot;
 using CrawlerInterFaces.Models;
 
 /// <summary>
-/// User-Agent检测器，用于检测网站是否验证User-Agent. 
+/// User-Agent检测器，用于检测网站是否验证User-Agent.
 /// </summary>
 public class UserAgentDetector : IAntiBotDetector
 {
@@ -24,7 +24,7 @@ public class UserAgentDetector : IAntiBotDetector
         {
             "invalid user agent", "user agent not supported",
             "浏览器版本过低", "请使用现代浏览器",
-            "User-Agent不能为空", "检测到异常User-Agent"
+            "User-Agent不能为空", "检测到异常User-Agent",
         };
 
         foreach (var indicator in userAgentIndicators)

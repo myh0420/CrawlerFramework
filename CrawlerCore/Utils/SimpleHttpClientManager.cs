@@ -135,7 +135,7 @@ namespace CrawlerFramework.CrawlerCore.Utils
         /// <param name="clientFactory">客户端创建工厂函数，用于自定义HttpClient的创建逻辑。</param>
         /// <param name="maxClientLifetime">客户端最大生命周期，默认值为1小时。</param>
         /// <param name="maxIdleTime">客户端最大空闲时间，默认值为30分钟。</param>
-        [Obsolete("Use constructor with HttpClientManagerOptions instead")]
+        // [Obsolete("Use constructor with HttpClientManagerOptions instead")]
         public SimpleHttpClientManager(int maxClients = 10, Func<HttpClient>? clientFactory = null, TimeSpan? maxClientLifetime = null, TimeSpan? maxIdleTime = null)
             : this(
                 new HttpClientManagerOptions
@@ -226,6 +226,19 @@ namespace CrawlerFramework.CrawlerCore.Utils
                         Interlocked.Increment(ref _expiredClients);
                         Interlocked.Decrement(ref _createdCount);
                         _domainClientCounts.AddOrUpdate(domain!, 0, (_, count) => Math.Max(0, count - 1));
+
+                        // 释放域名专用信号量，因为该客户端将不再可用
+                        try
+                        {
+                            if (_domainClientAvailableSemaphores.TryGetValue(domain!, out var semaphore))
+                            {
+                                semaphore.Release();
+                            }
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            // 忽略对象已释放的异常
+                        }
                     }
                 }
             }
@@ -244,6 +257,16 @@ namespace CrawlerFramework.CrawlerCore.Utils
                     clientInfo.Client.Dispose();
                     Interlocked.Increment(ref _expiredClients);
                     Interlocked.Decrement(ref _createdCount);
+
+                    // 释放全局信号量，因为该客户端将不再可用
+                    try
+                    {
+                        _clientAvailableSemaphore.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略对象已释放的异常
+                    }
                 }
             }
 
@@ -271,6 +294,19 @@ namespace CrawlerFramework.CrawlerCore.Utils
                             Interlocked.Increment(ref _expiredClients);
                             Interlocked.Decrement(ref _createdCount);
                             _domainClientCounts.AddOrUpdate(domain!, 0, (_, count) => Math.Max(0, count - 1));
+
+                            // 释放域名专用信号量，因为该客户端将不再可用
+                            try
+                            {
+                                if (_domainClientAvailableSemaphores.TryGetValue(domain!, out var semaphore))
+                                {
+                                    semaphore.Release();
+                                }
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                // 忽略对象已释放的异常
+                            }
                         }
                     }
                 }
@@ -288,6 +324,16 @@ namespace CrawlerFramework.CrawlerCore.Utils
                         clientInfo.Client.Dispose();
                         Interlocked.Increment(ref _expiredClients);
                         Interlocked.Decrement(ref _createdCount);
+
+                        // 释放全局信号量，因为该客户端将不再可用
+                        try
+                        {
+                            _clientAvailableSemaphore.Release();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            // 忽略对象已释放的异常
+                        }
                     }
                 }
 
@@ -357,6 +403,19 @@ namespace CrawlerFramework.CrawlerCore.Utils
                                     Interlocked.Increment(ref _expiredClients);
                                     Interlocked.Decrement(ref _createdCount);
                                     _domainClientCounts.AddOrUpdate(domain!, 0, (_, count) => Math.Max(0, count - 1));
+
+                                    // 释放域名专用信号量，因为该客户端将不再可用
+                                    try
+                                    {
+                                        if (_domainClientAvailableSemaphores.TryGetValue(domain!, out var semaphore))
+                                        {
+                                            semaphore.Release();
+                                        }
+                                    }
+                                    catch (ObjectDisposedException)
+                                    {
+                                        // 忽略对象已释放的异常
+                                    }
                                 }
                             }
                         }
@@ -379,6 +438,16 @@ namespace CrawlerFramework.CrawlerCore.Utils
                                 clientInfo.Client.Dispose();
                                 Interlocked.Increment(ref _expiredClients);
                                 Interlocked.Decrement(ref _createdCount);
+
+                                // 释放全局信号量，因为该客户端将不再可用
+                                try
+                                {
+                                    _clientAvailableSemaphore.Release();
+                                }
+                                catch (ObjectDisposedException)
+                                {
+                                    // 忽略对象已释放的异常
+                                }
                             }
                         }
                     }
@@ -567,6 +636,19 @@ namespace CrawlerFramework.CrawlerCore.Utils
                     Interlocked.Add(ref _expiredClients, expiredCount);
                     Interlocked.Add(ref _createdCount, -expiredCount);
                     totalExpiredCount += expiredCount;
+
+                    // 释放相应数量的全局信号量，因为这些客户端将不再可用
+                    try
+                    {
+                        for (int i = 0; i < expiredCount; i++)
+                        {
+                            _clientAvailableSemaphore.Release();
+                        }
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略对象已释放的异常
+                    }
                 }
 
                 // 清理基于域名的客户端队列
@@ -607,6 +689,22 @@ namespace CrawlerFramework.CrawlerCore.Utils
                             Interlocked.Add(ref _expiredClients, domainExpiredCount);
                             Interlocked.Add(ref _createdCount, -domainExpiredCount);
                             totalExpiredCount += domainExpiredCount;
+
+                            // 释放相应数量的域名专用信号量，因为这些客户端将不再可用
+                            try
+                            {
+                                if (_domainClientAvailableSemaphores.TryGetValue(domain, out var semaphore))
+                                {
+                                    for (int i = 0; i < domainExpiredCount; i++)
+                                    {
+                                        semaphore.Release();
+                                    }
+                                }
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                // 忽略对象已释放的异常
+                            }
                         }
                     }
 

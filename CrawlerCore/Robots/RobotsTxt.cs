@@ -10,7 +10,7 @@ namespace  CrawlerFramework.CrawlerCore.Robots
     using System.Linq;
     using System.Net.Http;
     using System.Threading.Tasks;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.Logging;
 
     /// <summary>
@@ -24,6 +24,7 @@ namespace  CrawlerFramework.CrawlerCore.Robots
         private readonly List<RobotsRule> rules;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="RobotsTxt"/> class.
         /// 初始化 <see cref="RobotsTxt"/> 类的新实例.
         /// </summary>
         /// <param name="content">robots.txt 文件的内容.</param>

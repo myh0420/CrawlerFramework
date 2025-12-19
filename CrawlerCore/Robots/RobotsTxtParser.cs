@@ -10,7 +10,7 @@ namespace  CrawlerFramework.CrawlerCore.Robots
     using System.Linq;
     using System.Net.Http;
     using System.Threading.Tasks;
-    using CrawlerInterFaces.Interfaces;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces;
     using Microsoft.Extensions.Logging;
 
     /// <summary>
@@ -44,6 +44,7 @@ namespace  CrawlerFramework.CrawlerCore.Robots
         private bool isInitialized = false;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="RobotsTxtParser"/> class.
         /// 初始化 <see cref="RobotsTxtParser"/> 类的新实例.
         /// </summary>
         /// <param name="logger">日志记录器实例.</param>

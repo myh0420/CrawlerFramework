@@ -24,6 +24,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
         private readonly ILogger<JsonExporter>? logger;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="JsonExporter"/> class.
         /// 初始化 <see cref="JsonExporter"/> 类的新实例.
         /// </summary>
         /// <param name="logger">日志记录器实例（可选）.</param>
@@ -62,7 +63,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
             try
             {
                 logger?.LogInformation("开始将数据导出为JSON格式，文件路径: {FilePath}", filePath);
-                
+
                 // 确保目录存在
                 Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? string.Empty);
 
@@ -71,7 +72,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
                 using var streamWriter = new StreamWriter(stream);
                 using var jsonWriter = new JsonTextWriter(streamWriter)
                 {
-                    Formatting = Formatting.Indented
+                    Formatting = Formatting.Indented,
                 };
 
                 var serializer = new JsonSerializer();

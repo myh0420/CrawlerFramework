@@ -12,7 +12,7 @@ namespace  CrawlerFramework.CrawlerCore.Configuration
     using Consul;
     using CrawlerFramework.CrawlerCore.Security;
     using CrawlerFramework.CrawlerEntity.Configuration;
-using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
+    using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
     using Microsoft.Extensions.Logging;
 
     /// <summary>
@@ -43,7 +43,7 @@ using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
         /// <summary>
         /// 内部 JSON 反序列化选项.
         /// </summary>
-        private readonly JsonSerializerOptions deserializeOptions = new()
+        private readonly JsonSerializerOptions deserializeOptions = new ()
         {
             PropertyNameCaseInsensitive = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
@@ -52,7 +52,7 @@ using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
         /// <summary>
         /// 内部 JSON 序列化选项.
         /// </summary>
-        private readonly JsonSerializerOptions serializeOptions = new()
+        private readonly JsonSerializerOptions serializeOptions = new ()
         {
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -61,7 +61,7 @@ using CrawlerFramework.CrawlerInterFaces.Interfaces.Configuration;
         /// <summary>
         /// 内部 AppCrawlerConfig 实例.
         /// </summary>
-        private AppCrawlerConfig currentConfig = new();
+        private AppCrawlerConfig currentConfig = new ();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonConfigService"/> class.

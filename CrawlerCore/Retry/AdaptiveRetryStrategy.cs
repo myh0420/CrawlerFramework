@@ -172,7 +172,8 @@ namespace CrawlerFramework.CrawlerCore.Retry
                         value.HalfOpenSuccesses++;
 
                         // 半开状态下，如果成功次数达到阈值，关闭电路
-                        if (value.HalfOpenSuccesses >= 2) // 连续2次成功关闭电路
+                        // 连续2次成功关闭电路
+                        if (value.HalfOpenSuccesses >= 2)
                         {
                             value.CircuitState = CircuitState.Closed;
                             value.HalfOpenAttempts = 0;
@@ -479,7 +480,8 @@ namespace CrawlerFramework.CrawlerCore.Retry
             }
 
             // 2. 检查连续错误次数过多
-            if (retryInfo.ConsecutiveErrors >= 10) // 连续10次错误，暂停重试
+            // 连续10次错误，暂停重试
+            if (retryInfo.ConsecutiveErrors >= 10)
             {
                 return false;
             }

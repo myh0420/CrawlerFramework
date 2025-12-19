@@ -19,7 +19,7 @@ namespace  CrawlerFramework.CrawlerCore.Export
     public interface IDataExporter
     {
         /// <summary>
-        /// 获取导出器支持的文件格式扩展名（不包含点号）.
+        /// Gets 获取导出器支持的文件格式扩展名（不包含点号）.
         /// 例如："json"、"csv"、"xlsx"等.
         /// </summary>
         string SupportedFormat { get; }
